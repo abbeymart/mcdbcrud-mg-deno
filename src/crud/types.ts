@@ -30,17 +30,17 @@ export interface ObjectType {
 
 // ModelValue will be validated based on the Model definition
 export interface ActionParamType {
-    [key: string]: any;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
+    [key: string]: ValueType;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
 }
 
 export type ActionParamsType = Array<ActionParamType>;  // documents for create or update task/operation
 
 export interface QueryParamsType {
-    [key: string]: any;
+    [key: string]: ValueType;
 }
 
 export interface ExistParamItemType {
-    [key: string]: any;
+    [key: string]: ValueType;
 }
 
 export type ExistParamsType = Array<ExistParamItemType>;
@@ -54,7 +54,7 @@ export interface ProjectParamsType {
 export type SortParamsType = Map<string, number> // key:direction => 1 for "asc", -1 for "desc"
 
 export interface BaseModelType {
-    id?: string;
+    _id?: string;
     language?: string;
     description?: string;
     appId?: string;
@@ -256,11 +256,11 @@ export type FieldValueTypes =
     string
     | number
     | boolean
-    | object
+    | ValueType
     | Array<string>
     | Array<number>
     | Array<boolean>
-    | Array<object>
+    | Array<ValueType>
     | unknown;
 
 export type PromiseResponseType = Promise<string>
@@ -269,7 +269,7 @@ export type PromiseResponseType = Promise<string>
     | Promise<Array<string>>
     | Promise<Array<number>>
     | Promise<Array<boolean>>
-    | Promise<Array<object>>;
+    | Promise<Array<ValueType>>;
 
 export interface ActionParamTaskType {
     createItems: ActionParamsType;

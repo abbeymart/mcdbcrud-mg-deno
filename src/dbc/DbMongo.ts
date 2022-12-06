@@ -1,12 +1,12 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-07-17
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-07-17, @Updated: 2022-12-05 (Deno)
  * @Company: Copyright 2020 Abi Akindele  | mConnect.biz
  * @License: All Rights Reserved | LICENSE.md
  * @Description: mcdbcrud-mg db-server-connect & db-handle for mongoDB
  */
 
-import {Db, MongoClient, MongoClientOptions} from "mongodb";
-import {DbSecureType, DbOptionsType, DbParamsType, Replicas,} from "./types";
+import { Database, MongoClient } from "../../deps.ts";
+import { DbSecureType, DbOptionsType, DbParamsType, Replicas, } from "./types.ts";
 
 export class DbMongo {
     private readonly host: string;
@@ -17,9 +17,9 @@ export class DbMongo {
     private readonly port: number;
     private readonly minPoolSize: number;
     private readonly secureOption: DbSecureType;
-    private serverUrl: string;
-    private dbUrl: string;
-    private readonly options: MongoClientOptions;
+    private readonly serverUrl: string;
+    private readonly dbUrl: string;
+    private readonly dbConnectOptions: DbOptionsType;
     private readonly checkAccess: boolean;
     private readonly user: string;
     private readonly pass: string;
@@ -41,11 +41,12 @@ export class DbMongo {
         this.pass = encodeURIComponent(this.password);
         this.replicas = dbConfig.replicas || [];
         this.replicaName = dbConfig.replicaName || "";
-        // set default dbUrl and serverUrl - standard standalone DB
+        // set default dbUrl and serverUrl - standard standalone DB | TODO: optional/remove, review replica-params
         this.dbUrl = this.checkAccess ?
             `mongodb://${this.user}:${this.pass}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}?directConnection=true` :
             `mongodb://${dbConfig.host}:${dbConfig.port}/${dbConfig.database}?directConnection=true`;
-        this.serverUrl = this.checkAccess ? `mongodb://${this.user}:${this.pass}@${dbConfig.host}:${dbConfig.port}?directConnection=true` :
+        this.serverUrl = this.checkAccess ?
+            `mongodb://${this.user}:${this.pass}@${dbConfig.host}:${dbConfig.port}?directConnection=true` :
             `mongodb://${dbConfig.host}:${dbConfig.port}?directConnection=true`;
         // For replica set, include the replica set hostUrl/name and a seedlist of the members in the URI string
         if (this.replicas.length > 0 && this.replicaName !== "") {
@@ -90,10 +91,31 @@ export class DbMongo {
                 this.serverUrl = `${this.serverUrl}/?replicaSet=${this.replicaName}?directConnection=true`
             }
         }
-        this.options = {
-            replicaSet : this.replicaName,
-            minPoolSize: options?.minPoolSize || this.minPoolSize,
-            maxPoolSize: (options?.minPoolSize || this.minPoolSize) * 6,
+        // environment variables / defaults
+        const dbenv = Deno.env.get("NODE_ENV") || "development";
+        if (dbenv === "production" && Deno.env.get("MONGODB_URI")) {
+            this.serverUrl = Deno.env.get("MONGODB_URI") || this.serverUrl;
+            this.dbUrl = Deno.env.get("MONGODB_URI") || this.dbUrl;
+        }
+        // db-connection-params
+        this.dbConnectOptions = {
+            db        : this.database,
+            tls       : this.secureOption.secureAccess,
+            servers   : [
+                {
+                    host: this.host,
+                    port: this.port,
+                },
+            ],
+            credential: {
+                username : this.username,
+                password : this.password,
+                db       : this.database,
+                mechanism: "SCRAM-SHA-1",       // TODO: review options
+            },
+            replicaSet: this.replicaName
+            // minPoolSize: this.minPoolSize,
+            // maxPoolSize: this.minPoolSize * 6,
         };
     }
 
@@ -105,17 +127,9 @@ export class DbMongo {
         return this.serverUrl;
     }
 
-    async connectServer(): Promise<MongoClient> {
+    async openDb(): Promise<Database> {
         try {
-            return await this.mgServer();
-        } catch (e) {
-            throw new Error("MongoDB server connection error:" + e.message);
-        }
-    }
-
-    async openDb(dbName = ""): Promise<Db> {
-        try {
-            return await this.dbHandle(dbName);
+            return await this.dbHandle();
         } catch (e) {
             throw new Error("MongoDB opening error:" + e.message);
         }
@@ -125,32 +139,30 @@ export class DbMongo {
         await this.dbConnect?.close();
     }
 
+    // mgServer returns the mongo-client connection to the mongo-server
     async mgServer(): Promise<MongoClient> {
-        const dbenv = process.env.NODE_ENV || "development";
-        if (dbenv === "production" && process.env.MONGODB_URI) {
-            this.serverUrl = process.env.MONGODB_URI;
-            this.dbUrl = process.env.MONGODB_URI;
-        }
         try {
-            const client = new MongoClient(this.dbUrl, this.options);
-            this.dbConnect = await client.connect();
+            // connect to the server - db-connection
+            this.dbConnect = new MongoClient();
+            await this.dbConnect.connect(this.dbConnectOptions);
             return this.dbConnect;
         } catch (err) {
-            await this.dbConnect?.close();
-            console.error("MongoDB server connection error:" + err.stack);
-            throw new Error("MongoDB server connection error:" + err.message);
+            this.dbConnect?.close();
+            console.error("MongoDB connection error:" + err.stack);
+            throw new Error("Error opening/creating a mongo database handle | " + err.message);
         }
-
     }
 
-    async dbHandle(dbName = ""): Promise<Db> {
-        let client: MongoClient;
+    // dbHandle returns the mongo-database handle to the specified mongo database
+    async dbHandle(dbName = this.database): Promise<Database> {
         try {
-            // connect to the server (pool connections)
-            client = await this.mgServer();
-            return client.db(dbName || this.database);
+            // connect to the server - db-connection
+            this.dbConnect = new MongoClient();
+            await this.dbConnect.connect(this.dbConnectOptions);
+            // db-handle
+            return this.dbConnect.database(dbName);
         } catch (err) {
-            await this.dbConnect?.close();
+            this.dbConnect?.close();
             console.error("MongoDB connection error:" + err.stack);
             throw new Error("Error opening/creating a mongo database handle | " + err.message);
         }

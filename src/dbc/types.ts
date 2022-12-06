@@ -29,6 +29,7 @@ export interface DbSecureType {
 export interface DbOptionsType extends ConnectOptions {
     checkAccess?: boolean;
     poolSize?: number;
+    replicaSet?: string;
     reconnectTries?: number;
     reconnectInterval?: number;
     useNewUrlParser?: boolean;
@@ -60,7 +61,6 @@ export interface Replica {
 }
 
 export type Replicas = Array<Replica>
-
 
 // default replicas - development / localhost
 export const defaultReplicas: Replicas = [
