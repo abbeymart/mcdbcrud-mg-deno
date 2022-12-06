@@ -5,24 +5,23 @@
  */
 
 // Import required module/function(s)
-import { Db } from "mongodb";
-import { getResMessage, getParamsMessage, ResponseMessage } from "@mconnect/mcresponse";
-import { isEmptyObject } from "../orm";
-import { validateLoadParams } from "./ValidateCrudParam";
-import { checkDb } from "../dbc";
-import { ActionParamsType, CrudOptionsType, CrudParamsType, UserInfoType } from "./types";
+import { Database, getResMessage, getParamsMessage, ResponseMessage } from "../../deps.ts";
+import { isEmptyObject } from "../orm/index.ts";
+import { validateLoadParams } from "./ValidateCrudParam.ts";
+import { checkDb } from "../dbc/index.ts";
+import { BaseModelType, CrudOptionsType, CrudParamsType, UserInfoType } from "./types.ts";
 
-class LoadRecord {
-    protected params: CrudParamsType;
-    protected appDb: Db;
+class LoadRecord<T extends BaseModelType> {
+    protected params: CrudParamsType<T>;
+    protected appDb: Database;
     protected coll: string;
     protected token: string;
     protected userInfo: UserInfoType;
-    protected actionParams: ActionParamsType;
+    protected actionParams: Array<T>;
     protected userId: string;
     protected maxQueryLimit: number;
 
-    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
+    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
         this.params = params;
         this.appDb = params.appDb;
         this.coll = params.coll;
@@ -107,7 +106,7 @@ class LoadRecord {
 }
 
 // factory function
-function newLoadRecord(params: CrudParamsType, options: CrudOptionsType = {}) {
+function newLoadRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
     return new LoadRecord(params, options);
 }
 

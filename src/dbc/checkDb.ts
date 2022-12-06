@@ -5,17 +5,16 @@
  * @Description: check-db connection / handle
  */
 
-import { Db, MongoClient } from "mongodb";
-import { getResMessage, ResponseMessage } from "@mconnect/mcresponse";
+import { Database, MongoClient, getResMessage, ResponseMessage } from "../../deps.ts";
 
-export function checkDb(dbConnect: Db): ResponseMessage {
-    if (dbConnect && dbConnect.databaseName !== "") {
+export function checkDb(dbHandle: Database): ResponseMessage {
+    if (dbHandle && dbHandle.name !== "") {
         return getResMessage("success", {
-            message: "valid database connection/handler",
+            message: "valid database handle",
         });
     } else {
         return getResMessage("validateError", {
-            message: "valid database connection/handler is required",
+            message: "valid database handle is required",
         });
     }
 }

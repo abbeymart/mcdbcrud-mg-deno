@@ -5,13 +5,13 @@
  * @Description: crud-validation helper functions
  */
 
-import { isEmptyObject, MessageObject } from "../orm";
-import * as utils from "./validate";
-import { CrudParamsType } from "./types";
+import { isEmptyObject, MessageObject } from "../orm/index.ts";
+import * as utils from "./validate.ts";
+import { BaseModelType, CrudParamsType } from "./types.ts";
 
-export function validateSaveParams(crudParams: CrudParamsType) {
+export function validateSaveParams<T extends BaseModelType>(crudParams: CrudParamsType<T>) {
     // Initialise error object and patterns matching:
-    let errors: MessageObject = {};
+    const errors: MessageObject = {};
     try {
         if (crudParams.coll) {
             // Check input formats/patterns
@@ -79,7 +79,7 @@ export function validateSaveParams(crudParams: CrudParamsType) {
         //     errors.userInfoRequired = "token or userInfo is required";
         //     errors.tokenRequired = "token or userInfo is required";
         // }
-    } catch (e) {
+    } catch (_e) {
         console.error("Error validating save-record(s) inputs");
         errors.validationError = "Error validating save-record(s) inputs";
     }
@@ -87,9 +87,9 @@ export function validateSaveParams(crudParams: CrudParamsType) {
     return errors;
 }
 
-export function validateDeleteParams(crudParams: CrudParamsType) {
+export function validateDeleteParams<T extends BaseModelType>(crudParams: CrudParamsType<T>) {
     // Initialise error object and patterns matching:
-    let errors: MessageObject = {};
+    const errors: MessageObject = {};
 
     try {
         if (crudParams.coll) {
@@ -144,7 +144,7 @@ export function validateDeleteParams(crudParams: CrudParamsType) {
         //     errors.tokenRequired = "token or userInfo is required";
         // }
 
-    } catch (e) {
+    } catch (_e) {
         console.error("Error validating delete-record(s) inputs");
         errors.validationError = "Error validating delete-record(s) inputs";
     }
@@ -153,9 +153,9 @@ export function validateDeleteParams(crudParams: CrudParamsType) {
 
 }
 
-export function validateGetParams(crudParams: CrudParamsType) {
+export function validateGetParams<T extends BaseModelType>(crudParams: CrudParamsType<T>) {
     // Initialise error object and patterns matching:
-    let errors: MessageObject = {};
+    const errors: MessageObject = {};
 
     try {
         if (crudParams.coll) {
@@ -221,7 +221,7 @@ export function validateGetParams(crudParams: CrudParamsType) {
         //     errors.tokenRequired = "token or userInfo is required";
         // }
 
-    } catch (e) {
+    } catch (_e) {
         console.error("Error validating get-record(s) inputs");
         errors.validationError = "Error validating get-record(s) inputs";
     }
@@ -229,9 +229,9 @@ export function validateGetParams(crudParams: CrudParamsType) {
     return errors;
 }
 
-export function validateLoadParams(crudParams: CrudParamsType) {
+export function validateLoadParams<T extends BaseModelType>(crudParams: CrudParamsType<T>) {
     // Initialise error object and patterns matching:
-    let errors: MessageObject = {};
+    const errors: MessageObject = {};
 
     try {
         if (crudParams.coll) {
@@ -253,7 +253,7 @@ export function validateLoadParams(crudParams: CrudParamsType) {
         } else {
             errors.actionParams = 'required-error; info is required';
         }
-    } catch (e) {
+    } catch (_e) {
         console.error('Error validating load-record(s) inputs');
         errors.validationError = 'Error validating load-record(s) inputs';
     }

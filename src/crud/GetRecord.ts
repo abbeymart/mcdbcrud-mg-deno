@@ -5,15 +5,19 @@
  */
 
 // Import required module(s)
-import {ObjectId} from "mongodb";
-import {getHashCache, setHashCache} from "@mconnect/mccache";
-import {getResMessage, ResponseMessage} from "@mconnect/mcresponse";
-import {isEmptyObject} from "../orm";
-import Crud from "./Crud";
-import {CrudOptionsType, CrudParamsType, GetRecordStats, GetResultType, LogDocumentsType} from "./types";
+import { ObjectId, getHashCache, setHashCache, getResMessage, ResponseMessage, Filter, } from "../../deps.ts";
+import { isEmptyObject } from "../orm/index.ts";
+import Crud from "./Crud.ts";
+import {
+    AuditLogOptionsType,
+    BaseModelType, CrudOptionsType, CrudParamsType, GetRecords, GetRecordStats, GetResultType, LogDocumentsType,
+    ObjectType,
+    QueryParamsType,
+    ValueType
+} from "./types.ts";
 
-class GetRecord extends Crud {
-    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
+class GetRecord<T extends BaseModelType> extends Crud<T> {
+    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
     }
@@ -55,26 +59,38 @@ class GetRecord extends Crud {
         if ((this.logRead || this.logCrud) && this.queryParams && !isEmptyObject(this.queryParams)) {
             const logDocuments: LogDocumentsType = {
                 queryParam: this.queryParams,
-            }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            logRes = await this.transLog.readLog(logParams, this.userId);
         } else if ((this.logRead || this.logCrud) && this.docIds && this.docIds.length > 0) {
             const logDocuments: LogDocumentsType = {
                 docIds: this.docIds,
-            }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
-        } else if(this.logRead || this.logCrud) {
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            logRes = await this.transLog.readLog(logParams, this.userId);
+        } else if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
-            }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            logRes = await this.transLog.readLog(logParams, this.userId);
         }
 
         // check cache for matching record(s), and return if exist
         if (this.cacheResult) {
             try {
-                const cacheRes = getHashCache(this.cacheKey, this.coll);
+                const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", cacheRes.value[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -91,11 +107,11 @@ class GetRecord extends Crud {
                 // id(s): convert string to ObjectId
                 const docIds = this.docIds.map(id => new ObjectId(id));
                 // use / activate database
-                const appDbColl = this.appDb.collection(this.coll);
-                const result = await appDbColl.find({_id: {$in: docIds}})
+                const appDbColl = this.appDb.collection<T>(this.coll);
+                const qParams: QueryParamsType = {_id: {$in: docIds}};
+                const result = await appDbColl.find(qParams as Filter<ValueType>)
                     .skip(this.skip)
                     .limit(this.limit)
-                    .project(this.projectParams)
                     .sort(this.sortParams)
                     .toArray();
                 const totalDocsCount = await appDbColl.countDocuments();
@@ -108,13 +124,14 @@ class GetRecord extends Crud {
                         totalRecordsCount: totalDocsCount,
                     }
                     const resultValue: GetResultType = {
-                        records: result,
+                        records: result as unknown as GetRecords,
                         stats,
                         logRes,
                     }
-                    setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+
+                    setHashCache({key: this.cacheKey, hash: this.coll,value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                     return getResMessage("success", {
-                        value: resultValue,
+                        value: resultValue as unknown as ObjectType,
                     });
                 }
                 return getResMessage("notFound");
@@ -128,11 +145,10 @@ class GetRecord extends Crud {
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             try {
                 // use / activate database
-                const appDbColl = this.appDb.collection(this.coll);
-                const result = await appDbColl.find(this.queryParams)
+                const appDbColl = this.appDb.collection<T>(this.coll);
+                const result = await appDbColl.find(this.queryParams as Filter<ValueType>)
                     .skip(this.skip)
                     .limit(this.limit)
-                    .project(this.projectParams)
                     .sort(this.sortParams)
                     .toArray();
                 const totalDocsCount = await appDbColl.countDocuments();
@@ -145,13 +161,13 @@ class GetRecord extends Crud {
                         totalRecordsCount: totalDocsCount,
                     }
                     const resultValue: GetResultType = {
-                        records: result,
+                        records: result as unknown as GetRecords,
                         stats,
                         logRes,
                     }
-                    setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+                    setHashCache({key: this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                     return getResMessage("success", {
-                        value: resultValue,
+                        value: resultValue as unknown as ObjectType,
                     });
                 }
                 return getResMessage("notFound");
@@ -164,11 +180,10 @@ class GetRecord extends Crud {
         // get all the collection-documents, up to the permissible limit
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection(this.coll);
+            const appDbColl = this.appDb.collection<T>(this.coll);
             const result = await appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
-                .project(this.projectParams)
                 .sort(this.sortParams)
                 .toArray();
             const totalDocsCount = await appDbColl.countDocuments();
@@ -181,13 +196,13 @@ class GetRecord extends Crud {
                     totalRecordsCount: totalDocsCount,
                 }
                 const resultValue: GetResultType = {
-                    records: result,
+                    records: result as unknown as GetRecords,
                     stats,
                     logRes,
                 }
-                setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+                setHashCache({key: this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                 return getResMessage("success", {
-                    value: resultValue,
+                    value: resultValue as unknown as ObjectType,
                 });
             }
             return getResMessage("notFound");
@@ -234,16 +249,20 @@ class GetRecord extends Crud {
         if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 docIds: this.docIds,
+            };
+            const logParams: AuditLogOptionsType = {
+                collName: this.coll,
+                collDocuments: logDocuments,
             }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            logRes = await this.transLog.readLog(logParams, this.userId);
         }
 
         // check cache for matching record(s), and return if exist
         if (this.cacheResult) {
             try {
-                const cacheRes = getHashCache(this.cacheKey, this.coll);
+                const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", cacheRes.value[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -259,11 +278,11 @@ class GetRecord extends Crud {
             // id(s): convert string to ObjectId
             const docIds = this.docIds.map(id => new ObjectId(id));
             // use / activate database
-            const appDbColl = this.appDb.collection(this.coll);
-            const result = await appDbColl.find({_id: {$in: docIds}})
+            const appDbColl = this.appDb.collection<T>(this.coll);
+            const qParams: QueryParamsType = {_id: {$in: docIds}};
+            const result = await appDbColl.find(qParams as Filter<ValueType>)
                 .skip(this.skip)
                 .limit(this.limit)
-                .project(this.projectParams)
                 .sort(this.sortParams)
                 .toArray();
             const totalDocsCount = await appDbColl.countDocuments();
@@ -276,13 +295,14 @@ class GetRecord extends Crud {
                     totalRecordsCount: totalDocsCount,
                 }
                 const resultValue: GetResultType = {
-                    records: result,
+                    records: result as unknown as GetRecords,
                     stats,
                     logRes,
                 }
-                await setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+                // this.cacheKey, this.coll, resultValue, this.cacheExpire
+                await setHashCache({key: this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                 return getResMessage("success", {
-                    value: resultValue,
+                    value: resultValue as unknown as ObjectType,
                 });
             }
             return getResMessage("notFound");
@@ -336,16 +356,20 @@ class GetRecord extends Crud {
         if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: this.queryParams,
+            };
+            const logParams: AuditLogOptionsType = {
+                collName: this.coll,
+                collDocuments: logDocuments,
             }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            logRes = await this.transLog.readLog(logParams, this.userId);
         }
 
         // check cache for matching record(s), and return if exist
         if (this.cacheResult) {
             try {
-                const cacheRes = getHashCache(this.cacheKey, this.coll);
+                const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", cacheRes.value[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -359,11 +383,10 @@ class GetRecord extends Crud {
         // Get the collection-documents by queryParams
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection(this.coll);
-            const result = await appDbColl.find(this.queryParams)
+            const appDbColl = this.appDb.collection<T>(this.coll);
+            const result = await appDbColl.find(this.queryParams as Filter<ValueType>)
                 .skip(this.skip)
                 .limit(this.limit)
-                .project(this.projectParams)
                 .sort(this.sortParams)
                 .toArray();
             const totalDocsCount = await appDbColl.countDocuments();
@@ -376,13 +399,14 @@ class GetRecord extends Crud {
                     totalRecordsCount: totalDocsCount,
                 }
                 const resultValue: GetResultType = {
-                    records: result,
+                    records: result as unknown as GetRecords,
                     stats,
                     logRes,
                 }
-                await setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+                //
+                await setHashCache({key: this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                 return getResMessage("success", {
-                    value: resultValue,
+                    value: resultValue as unknown as ObjectType,
                 });
             }
             return getResMessage("notFound");
@@ -423,32 +447,20 @@ class GetRecord extends Crud {
         if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
+            };
+            const logParams: AuditLogOptionsType = {
+                collName: this.coll,
+                collDocuments: logDocuments,
             }
-            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
-        }
-        // check cache for matching record(s), and return if exist
-        if (this.cacheResult) {
-            try {
-                const cacheRes = getHashCache(this.cacheKey, this.coll);
-                if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", cacheRes.value[0]);
-                    return getResMessage("success", {
-                        value  : cacheRes.value,
-                        message: "from cache",
-                    });
-                }
-            } catch (e) {
-                console.error("error from the cache: ", e.stack);
-            }
+            logRes = await this.transLog.readLog(logParams, this.userId);
         }
         // get all collection-documents, up to the permissible limit
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection(this.coll);
+            const appDbColl = this.appDb.collection<T>(this.coll);
             const result = await appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
-                .project(this.projectParams)
                 .sort(this.sortParams)
                 .toArray();
             const totalDocsCount = await appDbColl.countDocuments();
@@ -461,13 +473,13 @@ class GetRecord extends Crud {
                     totalRecordsCount: totalDocsCount,
                 }
                 const resultValue: GetResultType = {
-                    records: result,
+                    records: result as unknown as GetRecords,
                     stats,
                     logRes,
                 }
-                await setHashCache(this.cacheKey, this.coll, resultValue, this.cacheExpire);
+                await setHashCache({key: this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType, expire: this.cacheExpire});
                 return getResMessage("success", {
-                    value: resultValue,
+                    value: resultValue as unknown as ObjectType,
                 });
             }
             return getResMessage("notFound");
@@ -480,8 +492,8 @@ class GetRecord extends Crud {
 }
 
 // factory function/constructor
-function newGetRecord(params: CrudParamsType, options: CrudOptionsType = {}) {
+function newGetRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
     return new GetRecord(params, options);
 }
 
-export {GetRecord, newGetRecord};
+export { GetRecord, newGetRecord };

@@ -5,9 +5,8 @@
  * @Description: CRUD types
  */
 
-import { DBRef, MongoClient, ResponseMessage } from "../../deps.ts";
+import { Database, Document, MongoClient, ResponseMessage } from "../../deps.ts";
 import { ModelRelationType, ModelOptionsType, ValidateMethodResponseType, DocDescType } from "../orm/index.ts";
-
 
 export type ValueType =
     | Record<string, unknown>
@@ -23,17 +22,19 @@ export type ValueType =
     | { [key: string]: ValueType }
     | unknown;
 
-export interface ObjectType {
+export interface ObjectType extends BaseModelType{
     [key: string]: ValueType;
 }
 
 
 // ModelValue will be validated based on the Model definition
+export type DocumentParamsType<T extends Document> = T;
+
 export interface ActionParamType {
     [key: string]: ValueType;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
 }
 
-export type ActionParamsType = Array<ActionParamType>;  // documents for create or update task/operation
+export type ActionParamsType<T extends Document> = Array<DocumentParamsType<T>>;  // documents for create or update task/operation
 
 export interface QueryParamsType {
     [key: string]: ValueType;
@@ -51,7 +52,7 @@ export interface ProjectParamsType {
     [key: string]: number; // 1 for inclusion and 0 for exclusion
 }
 
-export type SortParamsType = Map<string, number> // key:direction => 1 for "asc", -1 for "desc"
+export type SortParamsType = Record<string, number> // key:direction => 1 for "asc", -1 for "desc"
 
 export interface BaseModelType {
     _id?: string;
@@ -93,11 +94,11 @@ export interface GetResultType {
     taskType?: string;
 }
 
-export interface CrudResultType {
+export interface CrudResultType<T extends Document> {
     queryParam?: QueryParamsType;
     recordIds?: Array<string>;
     recordsCount?: number;
-    records?: ActionParamsType;
+    records?: Array<T>;
     taskType?: string;
     logRes?: ResponseMessage;
 }
@@ -146,6 +147,16 @@ export interface AuditLogOptionsType {
     newCollDocuments?: LogDocumentsType;
     recordParams?: LogDocumentsType;
     newRecordParams?: LogDocumentsType;
+}
+
+export interface AuditType {
+    _id?: string;
+    collName?: string;
+    collDocuments?: LogDocumentsType;
+    newCollDocuments?: LogDocumentsType;
+    logType?: string;
+    logBy?: string;
+    logAt?: Date | string;
 }
 
 export enum AuditLogTypes {
@@ -271,9 +282,9 @@ export type PromiseResponseType = Promise<string>
     | Promise<Array<boolean>>
     | Promise<Array<ValueType>>;
 
-export interface ActionParamTaskType {
-    createItems: ActionParamsType;
-    updateItems: ActionParamsType;
+export interface ActionParamTaskType<T extends Document> {
+    createItems: Array<T>;
+    updateItems: Array<T>;
     docIds: Array<string>;
 }
 
@@ -286,8 +297,8 @@ export interface AppParamsType {
     serviceTag?: string;
 }
 
-export interface CrudParamsType {
-    appDb: DBRef;
+export interface CrudParamsType<T extends Document> {
+    appDb: Database;
     coll: string;
     dbClient: MongoClient;
     dbName: string;
@@ -295,7 +306,7 @@ export interface CrudParamsType {
     userInfo?: UserInfoType;
     nullValues?: ActionParamType;
     defaultValues?: ActionParamType;
-    actionParams?: ActionParamsType;
+    actionParams?: Array<T>;
     existParams?: ActionExistParamsType;
     queryParams?: QueryParamsType;
     docIds?: Array<string>;
@@ -325,9 +336,9 @@ export interface CrudOptionsType {
     roleColl?: string;
     accessColl?: string;
     verifyColl?: string;
-    accessDb?: DBRef;
-    auditDb?: DBRef;
-    serviceDb?: DBRef;
+    accessDb?: Database;
+    auditDb?: Database;
+    serviceDb?: Database;
     accessDbClient?: MongoClient;
     auditDbClient?: MongoClient;
     serviceDbClient?: MongoClient;

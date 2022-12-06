@@ -6,18 +6,18 @@
  */
 
 // Import required module/function
-import {Db} from "mongodb";
-import {getResMessage, ResponseMessage} from "@mconnect/mcresponse";
-import {checkDb} from "../dbc";
-import {AuditLogTypes, AuditLogOptionsType, LogDocumentsType} from "../crud";
+import { Database, getResMessage, ResponseMessage } from "../../deps.ts";
+import { checkDb } from "../dbc/index.ts";
+import { AuditLogTypes, AuditLogOptionsType, AuditType, } from "../crud/index.ts";
+import { isEmptyObject } from "../orm/index.ts";
 
 //types
 
 class AuditLog {
-    private readonly dbHandle: Db;
+    private readonly dbHandle: Database;
     private readonly auditColl: string;
 
-    constructor(auditDb: Db, options?: AuditLogOptionsType) {
+    constructor(auditDb: Database, options?: AuditLogOptionsType) {
         this.dbHandle = auditDb;
         this.auditColl = options && options.auditColl ? options.auditColl : "audits";
     }
@@ -26,7 +26,7 @@ class AuditLog {
         return this.auditColl
     }
 
-    async createLog(collName: string, collDocuments: LogDocumentsType, userId: string): Promise<ResponseMessage> {
+    async createLog(userId: string, logParams: AuditLogOptionsType,): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (dbCheck.code !== "success") {
             return dbCheck;
@@ -34,7 +34,7 @@ class AuditLog {
 
         // Check/validate the attributes / parameters
         let errorMessage = "";
-        if (!collName) {
+        if (!logParams.collName) {
             errorMessage = errorMessage ? errorMessage + " | Table or Collection name is required." :
                 "Table or Collection name is required.";
         }
@@ -42,7 +42,7 @@ class AuditLog {
             errorMessage = errorMessage ? errorMessage + " | userId is required." :
                 "userId is required.";
         }
-        if (!collDocuments) {
+        if (!logParams.collDocuments) {
             errorMessage = errorMessage ? errorMessage + " | Created record(s) information is required." :
                 "Created record(s) information is required.";
         }
@@ -55,18 +55,18 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collName     : collName,
-                collDocuments: collDocuments,
+                collName     : logParams.collName || "",
+                collDocuments: logParams.collDocuments || {},
                 logType      : "create",
                 logBy        : userId,
                 logAt        : new Date(),
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError", {
@@ -83,7 +83,7 @@ class AuditLog {
         }
     }
 
-    async updateLog(collName: string, collDocuments: LogDocumentsType, newCollDocuments: LogDocumentsType, userId: string): Promise<ResponseMessage> {
+    async updateLog(userId: string, logParams: AuditLogOptionsType,): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
@@ -91,7 +91,7 @@ class AuditLog {
 
         // Check/validate the attributes / parameters
         let errorMessage = "";
-        if (!collName) {
+        if (!logParams.collName) {
             errorMessage = errorMessage ? errorMessage + " | Table or Collection name is required." :
                 "Table or Collection name is required.";
         }
@@ -99,11 +99,11 @@ class AuditLog {
             errorMessage = errorMessage ? errorMessage + " | userId is required." :
                 "userId is required.";
         }
-        if (!collDocuments) {
+        if (!logParams.collDocuments) {
             errorMessage = errorMessage ? errorMessage + " | Current record(s) information is required." :
                 "Current record(s) information is required.";
         }
-        if (!newCollDocuments) {
+        if (!logParams.newCollDocuments) {
             errorMessage = errorMessage ? errorMessage + " | Updated record(s) information is required." :
                 "Updated record(s) information is required.";
         }
@@ -115,19 +115,19 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collName        : collName,
-                collDocuments   : collDocuments,
-                newCollDocuments: newCollDocuments,
+                collName        : logParams.collName || "",
+                collDocuments   : logParams.collDocuments || {},
+                newCollDocuments: logParams.newCollDocuments,
                 logType         : "update",
                 logBy           : userId,
                 logAt           : new Date(),
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -140,7 +140,7 @@ class AuditLog {
         }
     }
 
-    async readLog(collName: string, collDocuments: LogDocumentsType, userId: string = ""): Promise<ResponseMessage> {
+    async readLog(logParams: AuditLogOptionsType, userId = "",): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
@@ -148,11 +148,11 @@ class AuditLog {
 
         // validate params/values
         let errorMessage = "";
-        if (!collName) {
+        if (!logParams.collName) {
             errorMessage = errorMessage ? errorMessage + " | Table or Collection name is required." :
                 "Table or Collection name is required.";
         }
-        if (!collDocuments) {
+        if (!logParams.collDocuments) {
             errorMessage = errorMessage ?
                 errorMessage + " | Search keywords or Read record(s) information is required." :
                 "Search keywords or Read record(s) information is required.";
@@ -165,18 +165,18 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collName     : collName,
-                collDocuments: collDocuments,
+                collName     : logParams.collName || "",
+                collDocuments: logParams.collDocuments || {},
                 logType      : "read",
                 logBy        : userId,
                 logAt        : new Date(),
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -189,7 +189,7 @@ class AuditLog {
         }
     }
 
-    async deleteLog(collName: string, collDocuments: LogDocumentsType, userId: string): Promise<ResponseMessage> {
+    async deleteLog(userId: string, logParams: AuditLogOptionsType,): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
@@ -197,7 +197,7 @@ class AuditLog {
 
         // Check/validate the attributes / parameters
         let errorMessage = "";
-        if (!collName) {
+        if (!logParams.collName) {
             errorMessage = errorMessage ? errorMessage + " | Table or Collection name is required." :
                 "Table or Collection name is required.";
         }
@@ -205,7 +205,7 @@ class AuditLog {
             errorMessage = errorMessage ? errorMessage + " | userId is required." :
                 "userId is required.";
         }
-        if (!collDocuments) {
+        if (!logParams.collDocuments) {
             errorMessage = errorMessage ? errorMessage + " | Deleted record(s) information is required." :
                 "Deleted record(s) information is required.";
         }
@@ -217,18 +217,18 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collName     : collName,
-                collDocuments: collDocuments,
+                collName     : logParams.collName || "",
+                collDocuments: logParams.collDocuments || {},
                 logType      : "remove",
                 logBy        : userId,
                 logAt        : new Date(),
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -241,14 +241,14 @@ class AuditLog {
         }
     }
 
-    async loginLog(collDocuments: LogDocumentsType, userId: string = ""): Promise<ResponseMessage> {
+    async loginLog(logParams: AuditLogOptionsType, userId = "", collName = "users",): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
         }
         // validate params/values
         let errorMessage = "";
-        if (!collDocuments) {
+        if (!logParams.collDocuments) {
             errorMessage = errorMessage + " | Login information is required."
         }
         if (errorMessage) {
@@ -259,17 +259,18 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collDocuments: collDocuments,
+                collDocuments: logParams.collDocuments || {},
                 logType      : "login",
                 logBy        : userId,
                 logAt        : new Date(),
+                collName,
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -282,7 +283,7 @@ class AuditLog {
         }
     }
 
-    async logoutLog(collDocuments: LogDocumentsType, userId: string = ""): Promise<ResponseMessage> {
+    async logoutLog(userId: string, logParams: AuditLogOptionsType, collName = "users",): Promise<ResponseMessage> {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
@@ -293,7 +294,7 @@ class AuditLog {
         if (!userId) {
             errorMessage = errorMessage + " | userId is required."
         }
-        if (!collDocuments || collDocuments === "") {
+        if (!logParams.collDocuments || isEmptyObject(logParams.collDocuments)) {
             errorMessage = errorMessage + " | Logout information is required."
         }
         if (errorMessage) {
@@ -304,17 +305,18 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
-                collDocuments: collDocuments,
+                collDocuments: logParams.collDocuments || {},
                 logType      : "logout",
                 logBy        : userId,
                 logAt        : new Date(),
+                collName,
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -327,7 +329,7 @@ class AuditLog {
         }
     }
 
-    async auditLog(logType: string, userId: string = "", options?: AuditLogOptionsType) {
+    async auditLog(logType: string, logParams: AuditLogOptionsType, userId = "") {
         const dbCheck = checkDb(this.dbHandle);
         if (!dbCheck) {
             return dbCheck;
@@ -338,15 +340,15 @@ class AuditLog {
             collDocuments = null,
             newCollDocuments = null,
             errorMessage = "",
-            actionParams = {};
+            actionParams: AuditType = {};
 
         logType = logType.toLowerCase();
 
         switch (logType) {
             case "create":
             case AuditLogTypes.CREATE:
-                collName = options && options.collName ? options.collName : "";
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
                 // validate params/values
                 if (!collName) {
                     errorMessage = errorMessage ? errorMessage + " | Table or Collection name is required." :
@@ -367,16 +369,16 @@ class AuditLog {
                 }
                 actionParams = {
                     collName     : collName,
-                    collDocuments: collDocuments,
+                    collDocuments: collDocuments || {},
                     logType      : logType,
                     logBy        : userId,
                 };
                 break;
             case "update":
             case AuditLogTypes.UPDATE:
-                collName = options && options.collName ? options.collName : "";
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
-                newCollDocuments = options && options.newCollDocuments ? options.newCollDocuments : null; // object or array
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
+                newCollDocuments = logParams.newCollDocuments ? logParams.newCollDocuments : null; // object or array
 
                 // validate params/values
                 if (!collName) {
@@ -403,8 +405,8 @@ class AuditLog {
 
                 actionParams = {
                     collName        : collName,
-                    collDocuments   : collDocuments,
-                    newCollDocuments: newCollDocuments,
+                    collDocuments   : collDocuments || {},
+                    newCollDocuments: newCollDocuments || {},
                     logType         : logType,
                     logBy           : userId,
                 };
@@ -413,8 +415,8 @@ class AuditLog {
             case "delete":
             case AuditLogTypes.DELETE:
             case AuditLogTypes.REMOVE:
-                collName = options && options.collName ? options.collName : "";
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
 
                 // Check/validate the attributes / parameters
                 if (!collName) {
@@ -437,7 +439,7 @@ class AuditLog {
 
                 actionParams = {
                     collName     : collName,
-                    collDocuments: collDocuments,
+                    collDocuments: collDocuments || {},
                     logType      : logType,
                     logBy        : userId,
                 };
@@ -445,8 +447,8 @@ class AuditLog {
             case "read":
             case AuditLogTypes.GET:
             case AuditLogTypes.READ:
-                collName = options && options.collName ? options.collName : "";
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
 
                 // validate params/values
                 if (!collName) {
@@ -466,17 +468,17 @@ class AuditLog {
 
                 actionParams = {
                     collName     : collName,
-                    collDocuments: collDocuments,
+                    collDocuments: collDocuments || {},
                     logType      : logType,
                     logBy        : userId,
                 };
                 break;
             case "login":
             case AuditLogTypes.LOGIN:
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
-
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
                 // validate params/values
-                if (!collDocuments) {
+                if (!logParams.collDocuments) {
                     errorMessage = errorMessage + " | Login information is required."
                 }
                 if (errorMessage) {
@@ -486,15 +488,18 @@ class AuditLog {
                 }
 
                 actionParams = {
-                    collDocuments: collDocuments,
+                    collDocuments: collDocuments || {},
                     logType      : logType,
                     logBy        : userId,
                 };
+                if (collName) {
+                    actionParams.collName = collName;
+                }
                 break;
             case "logout":
             case AuditLogTypes.LOGOUT:
-                collDocuments = options && options.collDocuments ? options.collDocuments : null;
-
+                collName = logParams.collName ? logParams.collName : "";
+                collDocuments = logParams.collDocuments ? logParams.collDocuments : null;
                 // validate params/values
                 if (!userId) {
                     errorMessage = errorMessage + " | userId is required."
@@ -508,10 +513,11 @@ class AuditLog {
                     });
                 }
                 actionParams = {
-                    collDocuments: collDocuments,
+                    collDocuments: collDocuments || {},
                     logType      : logType,
                     logBy        : userId,
                 };
+
                 break;
             default:
                 return getResMessage("insertError", {
@@ -521,15 +527,15 @@ class AuditLog {
 
         try {
             // insert audit record
-            const coll = this.dbHandle.collection(this.auditColl);
+            const coll = this.dbHandle.collection<AuditType>(this.auditColl);
             const result = await coll.insertOne({
                 ...actionParams,
                 ...{logAt: new Date()},
             });
 
-            if (result.acknowledged) {
+            if (result) {
                 return getResMessage("success", {
-                    value: result,
+                    value: result as string,
                 });
             } else {
                 return getResMessage("insertError");
@@ -543,8 +549,8 @@ class AuditLog {
     }
 }
 
-function newAuditLog(auditDb: Db, options?: AuditLogOptionsType) {
+function newAuditLog(auditDb: Database, options?: AuditLogOptionsType) {
     return new AuditLog(auditDb, options);
 }
 
-export {AuditLog, newAuditLog};
+export { AuditLog, newAuditLog };

@@ -5,13 +5,15 @@
  */
 
 // Import required module(s)
-import { ObjectId } from 'mongodb';
-import { isEmptyObject } from "../orm";
-import Crud from './Crud';
-import {CrudOptionsType, CrudParamsType, LogDocumentsType,} from "./types";
+import { ObjectId, Document, Filter } from '../../deps.ts';
+import { isEmptyObject } from "../orm/index.ts";
+import Crud from './Crud.ts';
+import {
+    AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, LogDocumentsType, QueryParamsType, ValueType,
+} from "./types.ts";
 
-class GetRecordStream extends Crud {
-    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
+class GetRecordStream<T extends BaseModelType> extends Crud<T> {
+    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
     }
@@ -49,23 +51,35 @@ class GetRecordStream extends Crud {
         if ((this.logRead || this.logCrud) && this.queryParams && !isEmptyObject(this.queryParams)) {
             const logDocuments: LogDocumentsType = {
                 queryParam: this.queryParams,
-            }
-            await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            await this.transLog.readLog(logParams, this.userId);
         } else if ((this.logRead || this.logCrud) && this.docIds && this.docIds.length > 0) {
             const logDocuments: LogDocumentsType = {
                 docIds: this.docIds,
-            }
-            await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            await this.transLog.readLog(logParams, this.userId);
         } else if(this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
-            }
-            await this.transLog.readLog(this.coll, logDocuments, this.userId);
+            };
+            const logParams: AuditLogOptionsType = {
+                collName     : this.coll,
+                collDocuments: logDocuments,
+            };
+            await this.transLog.readLog(logParams, this.userId);
         }
 
         // exclude _id, if present, from the queryParams
         if (this.queryParams && Object.keys(this.queryParams).length > 0) {
-            const qParams: any = this.queryParams;
+            const qParams = this.queryParams;
             const {_id, ...otherParams} = qParams; // exclude _id, if present
             this.queryParams = otherParams;
         }
@@ -76,13 +90,12 @@ class GetRecordStream extends Crud {
                 // id(s): convert string to ObjectId
                 const docIds = this.docIds.map(id => new ObjectId(id));
                 // use / activate database
-                const appDbColl = this.appDb.collection(this.coll);
-                return appDbColl.find({_id: {$in: docIds}})
+                const appDbColl = this.appDb.collection<T>(this.coll);
+                const qParams: QueryParamsType = {_id: {$in: docIds}};
+                return appDbColl.find(qParams as Filter<ValueType>)
                     .skip(this.skip)
                     .limit(this.limit)
-                    .project(this.projectParams)
-                    .sort(this.sortParams)
-                    .stream();
+                    .sort(this.sortParams);
             } catch (error) {
                 console.error(error);
                 throw new Error(`notFound: ${error.message}`);
@@ -91,13 +104,11 @@ class GetRecordStream extends Crud {
         if (this.queryParams && Object.keys(this.queryParams).length > 0) {
             try {
                 // use / activate database
-                const appDbColl = this.appDb.collection(this.coll);
-                return appDbColl.find(this.queryParams)
+                const appDbColl = this.appDb.collection<T>(this.coll);
+                return appDbColl.find(this.queryParams as Filter<ValueType>)
                     .skip(this.skip)
                     .limit(this.limit)
-                    .project(this.projectParams)
                     .sort(this.sortParams)
-                    .stream();
             } catch (error) {
                 console.error(error);
                 throw new Error(`notFound: ${error.message}`);
@@ -110,9 +121,7 @@ class GetRecordStream extends Crud {
             return appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
-                .project(this.projectParams)
                 .sort(this.sortParams)
-                .stream();
         } catch (error) {
             console.error(error);
             throw new Error(`notFound: ${error.message}`);
@@ -121,7 +130,7 @@ class GetRecordStream extends Crud {
 }
 
 // factory function/constructor
-function newGetRecordStream(params: CrudParamsType, options: CrudOptionsType = {}) {
+function newGetRecordStream<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
     return new GetRecordStream(params, options);
 }
 

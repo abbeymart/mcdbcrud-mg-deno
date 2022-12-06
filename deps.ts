@@ -17,6 +17,6 @@ export {
     Bson, MongoClient, Database, ObjectId,
 } from "https://deno.land/x/mongo@v0.31.1/mod.ts";
 export type {
-    FindOptions, AggregateOptions, ConnectOptions,
-    Server, Credential, DBRef,
+    FindOptions, AggregateOptions, ConnectOptions, Filter,
+    Server, Credential, DBRef, InsertDocument, Document,
 } from "https://deno.land/x/mongo@v0.31.1/mod.ts";

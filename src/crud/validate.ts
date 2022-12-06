@@ -3,11 +3,12 @@
  * @Company: mConnect.biz | @License: MIT
  * @Description: common validation functions
  */
+import { ValueType } from "./types.ts";
 
-export const isProvided = (param: any): boolean => {
+export const isProvided = (param: ValueType): boolean => {
     // Verify the Required status
     // Validate that the item is not empty / null / undefined
-    return !(param === '' || param === null || param === undefined || Object.keys(param).length === 0);
+    return !(param === "" || param === null || param === undefined || Object.keys(param).length === 0);
 };
 
 export const isEven = (num: number): boolean => {
@@ -33,7 +34,7 @@ export const isNumberFloat = (num: number): boolean => {
 export const isObjectType = (param: object): boolean => {
     "use strict";
     // Validate param is an object, {}
-    return (typeof param === 'object' && !Array.isArray(param));
+    return (typeof param === "object" && !Array.isArray(param));
 };
 
 export const isArrayType = (param: Array<any>): boolean => {
@@ -62,7 +63,7 @@ export const isUsername = (param: string): boolean => {
 
 export const isEmpty = (param: any): boolean => {
     "use strict";
-    return (param === '' || param === null || param === undefined ||
+    return (param === "" || param === null || param === undefined ||
         Object.keys(param).length === 0 ||
         (Array.isArray(param) && param.length === 0));
 };
@@ -116,7 +117,7 @@ export const isPostalCodeUK = (param: string): boolean => {
 };
 
 export const isName = (param: string): boolean => {
-    const namePattern = /^[a-zA-Z'\-]+(\s[a-zA-Z'\-])*[a-zA-Z'\-]*/;   // Abi Charles Africa America
+    const namePattern = /^[a-zA-Z"\-]+(\s[a-zA-Z"\-])*[a-zA-Z"\-]*/;   // Abi Charles Africa America
     return namePattern.test(param);
 };
 
@@ -153,7 +154,7 @@ export const isLanguageCode = (param: string): boolean => {
 
 export const isWordSpace = (param: string): boolean => {
     // words with spaces and hyphens, no numbers
-    const wordSpacePattern = /^[a-zA-Z0-9,()'._&]+[\s\-a-zA-Z0-9,()'._&]*[a-zA-Z0-9,()'._?]*$/;
+    const wordSpacePattern = /^[a-zA-Z0-9,()"._&]+[\s\-a-zA-Z0-9,()"._&]*[a-zA-Z0-9,()"._?]*$/;
     return wordSpacePattern.test(param);
 };
 

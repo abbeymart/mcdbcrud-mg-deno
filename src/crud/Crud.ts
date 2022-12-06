@@ -1,12 +1,11 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-05-28
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-02-21 | @Updated: 2020-05-28, 2022-12-05(Deno)
  * @Company: mConnect.biz | @License: MIT
  * @Description: mcdbcrud-mg base class, for all CRUD operations
  */
 
 // Import required module/function(s)/types
-import {Db, MongoClient, ObjectId} from "mongodb";
-import {getResMessage, ResponseMessage} from "@mconnect/mcresponse";
+import { Database, MongoClient, ObjectId, getResMessage, ResponseMessage, Filter } from "../../deps.ts";
 import {
     UserInfoType,
     CrudParamsType,
@@ -17,16 +16,15 @@ import {
     RoleFuncType,
     OkResponse,
     QueryParamsType,
-    ActionParamsType,
-    ProjectParamsType, SortParamsType, SubItemsType, ActionParamType, FieldValueTypes, ObjectRefType,
-    ActionExistParamsType,
-} from "./types";
-import {AuditLog, newAuditLog} from "../auditlog";
-import {DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType} from "../orm";
+    ProjectParamsType, SortParamsType, SubItemsType, ActionParamType, FieldValueTypes, ObjectType,
+    ActionExistParamsType, ValueType, BaseModelType,
+} from "./types.ts";
+import {AuditLog, newAuditLog} from "../auditlog/index.ts";
+import {DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType} from "../orm/index.ts";
 
-export class Crud {
-    protected params: CrudParamsType;
-    protected readonly appDb: Db;
+export class Crud<T extends BaseModelType> {
+    protected params: CrudParamsType<T>;
+    protected readonly appDb: Database;
     protected readonly coll: string;
     protected readonly dbClient: MongoClient;
     protected readonly dbName: string;
@@ -34,18 +32,18 @@ export class Crud {
     protected token: string;
     protected readonly userInfo: UserInfoType;
     protected docIds: Array<string>;       // to capture string-id | ObjectId
-    protected actionParams: ActionParamsType;
+    protected actionParams: Array<T>;
     protected queryParams: QueryParamsType;
     protected readonly existParams: ActionExistParamsType;
     protected readonly projectParams: ProjectParamsType;
-    protected readonly sortParams: SortParamsType | {};
+    protected readonly sortParams: SortParamsType;
     protected taskType: TaskTypes | string;
     protected skip: number;
     protected limit: number;
     protected readonly recursiveDelete: boolean;
-    protected readonly accessDb: Db;
-    protected readonly auditDb: Db;
-    protected readonly serviceDb: Db;
+    protected readonly accessDb: Database;
+    protected readonly auditDb: Database;
+    protected readonly serviceDb: Database;
     protected readonly accessDbClient: MongoClient;
     protected readonly auditDbClient: MongoClient;
     protected readonly serviceDbClient: MongoClient;
@@ -73,9 +71,9 @@ export class Crud {
     protected isActive: boolean;
     protected nullValues: ActionParamType;
     protected defaultValues: ActionParamType;
-    protected createItems: ActionParamsType;
-    protected updateItems: ActionParamsType;
-    protected currentRecs: Array<ObjectRefType>;
+    protected createItems: Array<T>;
+    protected updateItems: Array<T>;
+    protected currentRecs: Array<T>;
     protected roleServices: Array<RoleServiceResponseType>;
     protected isRecExist: boolean;
     protected actionAuthorized: boolean;
@@ -96,7 +94,7 @@ export class Crud {
     protected readonly cacheResult: boolean;
     protected getAllResults?: boolean;
 
-    constructor(params: CrudParamsType, options?: CrudOptionsType) {
+    constructor(params: CrudParamsType<T>, options?: CrudOptionsType) {
         // crudParams
         this.params = params;
         this.appDb = params.appDb;
@@ -201,8 +199,8 @@ export class Crud {
     }
 
     // checkDb checks / validate appDb
-    checkDb(dbConnect: Db): ResponseMessage {
-        if (dbConnect && dbConnect.databaseName !== "") {
+    checkDb(dbHandle: Database): ResponseMessage {
+        if (dbHandle && dbHandle.name !== "") {
             return getResMessage("success", {
                 message: "valid database handler",
             });
@@ -240,7 +238,7 @@ export class Crud {
             let attributesMessage = "";
             for (const actionExistParams of this.existParams) {
                 for (const existItem of actionExistParams) {
-                    let recordExist = await appDbColl.findOne(existItem);
+                    const recordExist = await appDbColl.findOne(existItem);
                     if (recordExist) {
                         this.isRecExist = true;
                         // capture attributes for any duplicate-document
@@ -285,25 +283,27 @@ export class Crud {
             if (validDb.code !== "success") {
                 return validDb;
             }
-            let currentRecords: ActionParamsType;
+            let currentRecords: Array<T>;
             switch (by.toLowerCase()) {
-                case "id":
+                case "id": {
                     const docIds = this.docIds.map(id => new ObjectId(id));
-                    currentRecords = await this.appDb.collection(this.coll)
-                        .find({_id: {$in: docIds}},)
+                    const qParams = {_id: {$in: docIds}} as QueryParamsType;
+                    currentRecords = await this.appDb.collection<T>(this.coll)
+                        .find(qParams as Filter<ValueType>)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
                     break;
+                }
                 case "queryparams":
-                    currentRecords = await this.appDb.collection(this.coll)
-                        .find(this.queryParams,)
+                    currentRecords = await this.appDb.collection<T>(this.coll)
+                        .find(this.queryParams as Filter<ValueType>)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
                     break;
                 default:
-                    currentRecords = await this.appDb.collection(this.coll)
+                    currentRecords = await this.appDb.collection<T>(this.coll)
                         .find({},)
                         .skip(this.skip)
                         .limit(this.limit)
@@ -316,17 +316,17 @@ export class Crud {
                     this.currentRecs = currentRecords;
                     return getResMessage("success", {
                         message: `${currentRecords.length} document/record(s) retrieved successfully.`,
-                        value  : currentRecords,
+                        value  : currentRecords as unknown as Array<ObjectType>,
                     });
                 } else if (currentRecords.length > 0 && currentRecords.length < this.docIds.length) {
                     return getResMessage("partialRecords", {
                         message: `${currentRecords.length} out of ${this.docIds.length} document/record(s) found`,
-                        value  : currentRecords,
+                        value  : currentRecords as unknown as Array<ObjectType>,
                     });
                 } else {
                     return getResMessage("notFound", {
                         message: "Document/record(s) not found.",
-                        value  : currentRecords,
+                        value  : currentRecords as unknown as Array<ObjectType>,
                     });
                 }
             }
@@ -336,12 +336,12 @@ export class Crud {
                 this.currentRecs = currentRecords;
                 return getResMessage("success", {
                     message: `${currentRecords.length} document/record(s) retrieved successfully.`,
-                    value  : currentRecords,
+                    value  : currentRecords as unknown as Array<ObjectType>,
                 });
             } else {
                 return getResMessage("notFound", {
                     message: "Document/record(s) not found.",
-                    value  : currentRecords,
+                    value  : currentRecords as unknown as Array<ObjectType>,
                 });
             }
         } catch (e) {
@@ -353,7 +353,7 @@ export class Crud {
     }
 
     // set null value by DataTypes
-    initializeValues(fieldTypeDesc: DataTypes): any {
+    initializeValues(fieldTypeDesc: DataTypes): ValueType {
         switch (fieldTypeDesc) {
             case DataTypes.STRING:
             case DataTypes.POSTAL_CODE:
@@ -406,24 +406,25 @@ export class Crud {
     }
 
     // set default value based on FieldDescType
-    async setDefault(defaultValue: FieldValueTypes | DefaultValueType, fieldValue: FieldValueTypes = null): Promise<any> {
+    async setDefault(defaultValue: FieldValueTypes | DefaultValueType, fieldValue: FieldValueTypes = null): Promise<ValueType> {
         try {
             switch (typeof defaultValue) {
                 // defaultValue may be of types: DefaultValueType(function) or FieldValueTypes(others)
-                case "function":
+                case "function": {
                     const defValue = defaultValue as DefaultValueType;
                     return await defValue(fieldValue);
+                }
                 default:
                     return defaultValue || null;
             }
-        } catch (e) {
+        } catch (_e) {
             return null
         }
     }
 
     // computeInitializeValues set the null values for document/actionParam, for allowNull(true)
     computeInitializeValues(docDesc: DocDescType): ActionParamType {
-        let nullValues: ActionParamType = {}
+        const nullValues: ActionParamType = {}
         for (let [field, fieldDesc] of Object.entries(docDesc)) {
             switch (typeof fieldDesc) {
                 case "string":
@@ -447,7 +448,7 @@ export class Crud {
     }
 
     async computeDefaultValues(docDesc: DocDescType): Promise<ActionParamType> {
-        let defaultValues: ActionParamType = {};
+        const defaultValues: ActionParamType = {};
         for (let [field, fieldDesc] of Object.entries(docDesc)) {
             switch (typeof fieldDesc) {
                 case "string":
@@ -476,7 +477,7 @@ export class Crud {
     // getRoleServices method process and returns the permission to user / user-group/role for the specified service items
     async getRoleServices(roleIds: Array<string>, serviceIds: Array<string>): Promise<Array<RoleServiceResponseType>> {
         // serviceIds: for serviceCategory (record, collection/table, function, package, solution...)
-        let roleServices: Array<RoleServiceResponseType> = [];
+        const roleServices: Array<RoleServiceResponseType> = [];
         try {
             // validate models
             const validRoleServiceDb = await this.checkDb(this.accessDb);
@@ -504,13 +505,13 @@ export class Crud {
                 }
             }
             return roleServices;
-        } catch (e) {
+        } catch (_e) {
             return [];
         }
     }
 
     // checkAccess validate if current CRUD task is permitted based on defined/assigned roles
-    async checkTaskAccess(userInfo: UserInfoType, docIds: Array<string> = [],): Promise<ResponseMessage> {
+    async checkTaskAccess(_userInfo: UserInfoType, docIds: Array<string> = [],): Promise<ResponseMessage> {
         try {
             // validate models
             const validAccessDb = await this.checkDb(this.accessDb);
@@ -527,7 +528,7 @@ export class Crud {
             if (accessRes.code !== "success") {
                 return accessRes;
             }
-            const userRec = accessRes.value;
+            const userRec = accessRes.value as unknown as CheckAccessType;
 
             // if all the above checks passed, check for role-services access by taskType
             // obtain crudColl/collId (id) from serviceTable (repo for all resources)
@@ -538,7 +539,7 @@ export class Crud {
 
             // if permitted, include collId and docIds in serviceIds
             let collId = "";
-            let serviceIds = docIds;
+            const serviceIds = docIds;
             if (serviceRes && (serviceRes.serviceCategory.toLowerCase() === "collection" || serviceRes.serviceCategory.toLowerCase() === "table")) {
                 collId = serviceRes._id.toString();
                 serviceIds.push(collId);
@@ -549,7 +550,7 @@ export class Crud {
                 roleServices = await this.getRoleServices(userRec.roleIds, serviceIds)
             }
 
-            let permittedRes: CheckAccessType = {
+            const permittedRes: CheckAccessType = {
                 userId      : userRec.userId,
                 roleId      : userRec.roleId,
                 roleIds     : userRec.roleIds,
@@ -559,16 +560,16 @@ export class Crud {
                 collId      : collId,
             }
             if (permittedRes.isActive && permittedRes.isAdmin) {
-                return getResMessage("success", {value: permittedRes});
+                return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
             }
             const recLen = permittedRes.roleServices?.length || 0;
             if (permittedRes.isActive && recLen > 0 && recLen >= docIds.length) {
-                return getResMessage("success", {value: permittedRes});
+                return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
             }
             return getResMessage("unAuthorized",
                 {
                     message: `Access permitted for ${recLen} of ${docIds.length} service-items/records`,
-                    value  : permittedRes
+                    value  : permittedRes as unknown as Record<string, ValueType>,
                 }
             );
         } catch (e) {
@@ -608,16 +609,16 @@ export class Crud {
             }
 
             // capture roleServices value | get access info value
-            let accessInfo = accessRes.value;
-            let accessUserId = accessInfo.userId;
+            const accessInfo = accessRes.value as unknown as CheckAccessType;
+            const accessUserId = accessInfo.userId;
 
             isAdmin = accessInfo.isAdmin;
             isActive = accessInfo.isActive;
-            roleServices = accessInfo.roleServices;
+            roleServices = accessInfo.roleServices || [];
             userId = accessInfo.userId;
             roleId = accessInfo.roleId;
             roleIds = accessInfo.roleIds;
-            collId = accessInfo.collId;
+            collId = accessInfo.collId || "";
 
             // validate active status
             if (!isActive) {
@@ -746,24 +747,24 @@ export class Crud {
             }
         } catch (e) {
             const ok: OkResponse = {ok: false};
-            return getResMessage("unAuthorized", {value: ok, message: e.message});
+            return getResMessage("unAuthorized", {value: ok as unknown as ObjectType, message: e.message});
         }
     }
 
     async taskPermissionByParams(taskType: TaskTypes | string): Promise<ResponseMessage> {
         try {
             // ids of documents to be deleted, from queryParams
-            let docIds: Array<string> = [];          // reset docIds instance value
+            const docIds: Array<string> = [];          // reset docIds instance value
             if (this.currentRecs.length < 1) {
                 const currentRecRes = await this.getCurrentRecords("queryParams");
                 if (currentRecRes.code !== "success") {
                     return getResMessage("notFound", {message: "missing documents, required to process permission"});
                 } else {
-                    this.currentRecs = currentRecRes.value;
+                    this.currentRecs = currentRecRes.value as unknown as Array<T>;
                 }
             }
-            this.currentRecs.forEach((item: ObjectRefType) => {
-                docIds.push(item._id);
+            this.currentRecs.forEach((item) => {
+                docIds.push(item._id as string);
             });
             this.docIds = docIds;
             return await this.taskPermissionById(taskType);
@@ -822,7 +823,7 @@ export class Crud {
             }
             return getResMessage("success", {
                 message: "Access Permitted: ",
-                value  : resVal,
+                value  : resVal as unknown as ObjectType,
             });
         } catch (e) {
             console.error("check-login-status-error:", e);

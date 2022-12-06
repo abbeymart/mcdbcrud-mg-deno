@@ -5,9 +5,9 @@
  * @Description: crud operations authorization
  */
 
-import Crud from "./Crud";
-import { CrudOptionsType, CrudParamsType, TaskTypes } from "./types";
-import { ResponseMessage } from "@mconnect/mcresponse";
+import Crud from "./Crud.ts";
+import { CrudOptionsType, CrudParamsType, TaskTypes } from "./types.ts";
+import { ResponseMessage } from "../../deps.ts";
 
 export class AuthCrud extends Crud {
     constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
