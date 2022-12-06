@@ -66,7 +66,7 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
                 collDocuments: logDocuments,
             };
             await this.transLog.readLog(logParams, this.userId);
-        } else if(this.logRead || this.logCrud) {
+        } else if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
             };

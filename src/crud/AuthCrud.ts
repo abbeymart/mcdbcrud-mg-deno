@@ -6,11 +6,11 @@
  */
 
 import Crud from "./Crud.ts";
-import { CrudOptionsType, CrudParamsType, TaskTypes } from "./types.ts";
+import { BaseModelType, CrudOptionsType, CrudParamsType, TaskTypes } from "./types.ts";
 import { ResponseMessage } from "../../deps.ts";
 
-export class AuthCrud extends Crud {
-    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
+export class AuthCrud<T extends BaseModelType> extends Crud<T> {
+    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
         super(params, options);
     }
 
@@ -54,6 +54,6 @@ export class AuthCrud extends Crud {
 }
 
 // factory function
-export function newAuthCrud(params: CrudParamsType, options: CrudOptionsType = {}) {
+export function newAuthCrud<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
     return new AuthCrud(params, options);
 }

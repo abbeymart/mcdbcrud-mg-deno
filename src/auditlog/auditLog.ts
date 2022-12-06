@@ -8,7 +8,7 @@
 // Import required module/function
 import { Database, getResMessage, ResponseMessage } from "../../deps.ts";
 import { checkDb } from "../dbc/index.ts";
-import { AuditLogTypes, AuditLogOptionsType, AuditType, } from "../crud/index.ts";
+import { AuditLogTypes, AuditLogOptionsType, AuditType, ObjectType, } from "../crud/index.ts";
 import { isEmptyObject } from "../orm/index.ts";
 
 //types
@@ -294,7 +294,7 @@ class AuditLog {
         if (!userId) {
             errorMessage = errorMessage + " | userId is required."
         }
-        if (!logParams.collDocuments || isEmptyObject(logParams.collDocuments)) {
+        if (!logParams.collDocuments || isEmptyObject(logParams.collDocuments as unknown as ObjectType)) {
             errorMessage = errorMessage + " | Logout information is required."
         }
         if (errorMessage) {

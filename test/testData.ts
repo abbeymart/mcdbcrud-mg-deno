@@ -2,10 +2,10 @@
 
 import {
     UserInfoType, CrudOptionsType, ActionParamType,
-    TaskTypes, QueryParamsType, ActionParamsType, ModelRelationType, RelationTypes, RelationActionTypes, ModelDescType,
-    BaseModel, DataTypes, ModelCrudOptionsType, newModel,
+    TaskTypes, QueryParamsType, ModelRelationType, RelationTypes, RelationActionTypes, ModelDescType,
+    BaseModel, DataTypes, ModelCrudOptionsType, newModel, AuditType,
 } from "../src/index.ts"
-import {collections} from "./collections.ts";
+import { collections } from "./collections.ts";
 
 // Models
 
@@ -127,22 +127,11 @@ const categoryOptions: ModelCrudOptionsType = {
 // instantiate model
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
-
-export interface AuditType {
-    id: string;
-    collName: string;
-    collDocuments: any;
-    newCollDocuments: any;
-    logType: string;
-    logBy: string;
-    logAt: Date;
-}
-
 export const AuditModel: AuditType = {
-    id              : "",
+    _id              : "",
     collName        : "",
-    collDocuments   : null,
-    newCollDocuments: null,
+    collDocuments   : {},
+    newCollDocuments: {},
     logType         : "",
     logBy           : "",
     logAt           : new Date(),
@@ -242,32 +231,32 @@ export const AuditCreateRec2: ActionParamType = {
     "logType"   : TaskTypes.CREATE,
 }
 
-export const AuditUpdateRec1: ActionParamType = {
-    "id"           : "c1c3f614-b10d-40a4-9269-4e03f5fcf55e",
-    "tableName"    : "todos",
-    "logAt"        : new Date(),
-    "logBy"        : UserId,
-    "logRecords"   : LogRecords,
-    "newLogRecords": NewLogRecords,
-    "logType"      : TaskTypes.UPDATE,
+export const AuditUpdateRec1: AuditType = {
+    _id           : "c1c3f614-b10d-40a4-9269-4e03f5fcf55e",
+    collName    : "todos",
+    logAt      : new Date(),
+    logBy       : UserId,
+   collDocuments   : LogRecords,
+    newCollDocuments: NewLogRecords,
+    logType      : TaskTypes.UPDATE,
 }
 
-export const AuditUpdateRec2: ActionParamType = {
-    "id"           : "003c1422-c7cb-476f-b96f-9c8028e04a14",
-    "tableName"    : "todos",
-    "logAt"        : new Date(),
-    "logBy"        : UserId,
-    "logRecords"   : LogRecords2,
-    "newLogRecords": NewLogRecords2,
-    "logType"      : TaskTypes.UPDATE,
+export const AuditUpdateRec2: AuditType = {
+    _id              : "003c1422-c7cb-476f-b96f-9c8028e04a14",
+    collName        : "todos",
+    logAt           : new Date(),
+    logBy           : UserId,
+    collDocuments   : LogRecords2,
+    newCollDocuments: NewLogRecords2,
+    logType         : TaskTypes.UPDATE,
 }
 
-export const AuditCreateActionParams: ActionParamsType = [
+export const AuditCreateActionParams: Array<AuditType> = [
     AuditCreateRec1,
     AuditCreateRec2,
 ]
 
-export const AuditUpdateActionParams: ActionParamsType = [
+export const AuditUpdateActionParams: Array<AuditType> = [
     AuditUpdateRec1,
     AuditUpdateRec2,
 ]

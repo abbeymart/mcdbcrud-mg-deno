@@ -1,19 +1,20 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16, 2022-12-06
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents by docIds or queryParams
  */
 
 // Import required module/function(s)
-import {ObjectId, getResMessage, ResponseMessage, deleteHashCache} from "../../deps.ts";
+import { ObjectId, getResMessage, ResponseMessage, deleteHashCache, Filter } from "../../deps.ts";
 import Crud from "./Crud.ts";
 import {
     AuditLogOptionsType,
     BaseModelType,
-    CrudOptionsType, CrudParamsType, CrudResultType, LogDocumentsType, ObjectType, SubItemsType,
+    CrudOptionsType, CrudParamsType, CrudResultType, LogDocumentsType, ObjectType, QueryParamsType, SubItemsType,
+    ValueType,
 } from "./types.ts";
-import {isEmptyObject } from "../orm/index.ts";
+import { isEmptyObject } from "../orm/index.ts";
 
 class DeleteRecord<T extends BaseModelType> extends Crud<T> {
     protected collRestrict: boolean;
@@ -172,8 +173,8 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             // prevent item delete, if child-collection-items reference itemId
             const subItems: Array<SubItemsType> = []
             // docIds ref-check
-            const childExist = this.childRelations.some((relation) => {
-                const targetDbColl = this.appDb.collection(relation.targetColl);
+            const childExist = this.childRelations.some(async(relation) => {
+                const targetDbColl = this.appDb.collection<T>(relation.targetColl);
                 // include foreign-key/target as the query condition
                 const targetField = relation.targetField;
                 const sourceField = relation.sourceField;
@@ -184,13 +185,13 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                     }
                 } else {
                     // other source-fields besides _id
-                    const sourceFieldValues = this.currentRecs.map((item: ObjectType) => item[sourceField]);
+                    const sourceFieldValues = this.currentRecs.map((item) => (item as unknown as ObjectType)[sourceField]);
                     query[targetField] = {
                         $in: sourceFieldValues,
                     }
                 }
-                const collItem = targetDbColl.find(query);
-                if (collItem && !isEmptyObject(collItem)) {
+                const collItem = await targetDbColl.findOne(query as Filter<ValueType>);
+                if (collItem && !isEmptyObject(collItem as unknown as ObjectType)) {
                     subItems.push({
                         collName          : relation.targetColl,
                         hasRelationRecords: true,
@@ -229,8 +230,8 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             await this.getCurrentRecords("queryParams")
             this.docIds = [];
-            this.currentRecs.forEach((item: ObjectType) => {
-                this.docIds.push(item["_id"]);
+            this.currentRecs.forEach((item) => {
+                this.docIds.push(item["_id"] as string);
             });
             return this.checkRefIntegrityById();
         }
@@ -241,109 +242,84 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
 
     async removeRecordById(): Promise<ResponseMessage> {
         // delete/remove records and log in audit-collection
+        // id(s): convert string to ObjectId
+        const docIds = this.docIds.map(id => new ObjectId(id));
         try {
-            // trx starts
-            let removed;
-                const appDbColl = this.dbClient.db(this.dbName).collection(this.coll);
-                // id(s): convert string to ObjectId
-                const docIds = this.docIds.map(id => new ObjectId(id));
-                removed = await appDbColl.deleteMany({
-                    _id: {
-                        $in: docIds,
-                    }
-                });
-                if (removed.deletedCount !== docIds.length) {
-                    await session.abortTransaction();
-                    throw new Error(`Unable to delete all specified records [${removed.deletedCount} of ${docIds.length} set to be removed]. Transaction aborted.`)
-                }
-                if (removed.acknowledged && removed.deletedCount === docIds.length) {
-                } else {
-                    throw new Error(`document-remove-error [${removed.deletedCount} of ${this.currentRecs.length} set to be removed]`)
-                }
+            const appDbColl = this.appDb.collection<T>(this.coll);
+            const qParams: QueryParamsType = {_id: {$in: docIds,}};
+            const removed = await appDbColl.deleteMany(qParams as Filter<ValueType>);
+            if (!removed || removed < 1) {
+                throw new Error(`Unable to delete the specified records [${removed} of ${docIds.length} set to be removed].`)
+            }
             // perform cache and audi-log tasks
-            if (removed.acknowledged) {
+            if (removed) {
                 // delete cache
                 deleteHashCache({key: this.cacheKey, hash: this.coll});
                 // check the audit-log settings - to perform audit-log
-                let logRes: ResponseMessage = {code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: null};
+                let logRes: ResponseMessage = {
+                    code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: {}
+                };
                 if (this.logDelete || this.logCrud) {
                     const logDocuments: LogDocumentsType = {
                         collDocuments: this.currentRecs,
                     };
                     const logParams: AuditLogOptionsType = {
-                        collName: this.coll,
+                        collName     : this.coll,
                         collDocuments: logDocuments,
                     }
-                    logRes = await this.transLog.deleteLog(this.userId, logParams );
+                    logRes = await this.transLog.deleteLog(this.userId, logParams);
                 }
                 const deleteResultValue: CrudResultType<T> = {
-                    recordsCount: removed.deletedCount,
+                    recordsCount: removed,
                     logRes,
                 }
                 return getResMessage("success", {
-                    message: "Document/record deleted successfully",
+                    message: `Document/record deleted successfully - ${removed} of ${docIds.length} removed.`,
                     value  : deleteResultValue as unknown as ObjectType,
                 });
             }
             return getResMessage("deleteError", {message: "No record(s) deleted"});
         } catch (e) {
-            await session.abortTransaction()
             return getResMessage("removeError", {
                 message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,
                 value  : e,
             });
-        } finally {
-            await session.endSession();
         }
     }
 
     async removeRecordByParams(): Promise<ResponseMessage> {
         // delete/remove records and log in audit-collection
-        // create a transaction session
-        const session = this.dbClient.startSession();
         try {
             if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                // trx starts
-                let removed: DeleteResult = {deletedCount: 0, acknowledged: false};
-                await session.withTransaction(async () => {
-                    const appDbColl = this.dbClient.db(this.dbName).collection(this.coll);
-                    removed = await appDbColl.deleteMany(this.queryParams);
-                    if (removed.deletedCount !== this.currentRecs.length) {
-                        await session.abortTransaction();
-                        throw new Error(`Unable to delete all specified records [${removed.deletedCount} of ${this.currentRecs.length} set to be removed]. Transaction aborted.`)
-                    }
-                    // commit or abort trx
-                    if (removed.acknowledged && removed.deletedCount === this.currentRecs.length) {
-                        await session.commitTransaction();
-                    } else {
-                        await session.abortTransaction()
-                        throw new Error(`document-remove-error [${removed.deletedCount} of ${this.currentRecs.length} set to be removed]`)
-                    }
-                });
+                const appDbColl = this.appDb.collection<T>(this.coll);
+                const removed = await appDbColl.deleteMany(this.queryParams as Filter<ValueType>);
+                if (!removed || removed < 1) {
+                    throw new Error(`Unable to delete the specified records [${removed} of ${this.currentRecs.length} set to be removed].`)
+                }
                 // perform cache and audi-log tasks
-                if (removed.acknowledged) {
+                if (removed) {
                     // delete cache
                     await deleteHashCache({key: this.cacheKey, hash: this.coll});
                     // check the audit-log settings - to perform audit-log
                     let logRes: ResponseMessage = {
-                        code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: null
+                        code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: {}
                     };
                     if (this.logDelete || this.logCrud) {
                         const logDocuments: LogDocumentsType = {
                             collDocuments: this.currentRecs,
                         };
                         const logParams: AuditLogOptionsType = {
-                            collName: this.coll,
+                            collName     : this.coll,
                             collDocuments: logDocuments,
                         }
                         logRes = await this.transLog.deleteLog(this.userId, logParams);
                     }
                     const deleteResultValue: CrudResultType<T> = {
-                        recordsCount: removed.deletedCount,
+                        recordsCount: removed,
                         logRes,
                     }
                     return getResMessage("success", {
-                        message: "Document/record deleted successfully",
+                        message: `Document/record deleted successfully - ${removed} of ${this.currentRecs.length} removed.`,
                         value  : deleteResultValue as unknown as ObjectType,
                     });
                 } else {
@@ -353,13 +329,10 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 return getResMessage("deleteError", {message: "Unable to delete record(s), due to missing queryParams"});
             }
         } catch (e) {
-            await session.abortTransaction()
             return getResMessage("removeError", {
                 message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,
                 value  : e,
             });
-        } finally {
-            await session.endSession();
         }
     }
 }
@@ -369,4 +342,4 @@ function newDeleteRecord<T extends BaseModelType>(params: CrudParamsType<T>, opt
     return new DeleteRecord(params, options);
 }
 
-export {DeleteRecord, newDeleteRecord};
+export { DeleteRecord, newDeleteRecord };

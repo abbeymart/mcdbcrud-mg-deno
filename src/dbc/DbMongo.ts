@@ -41,7 +41,7 @@ export class DbMongo {
         this.pass = encodeURIComponent(this.password);
         this.replicas = dbConfig.replicas || [];
         this.replicaName = dbConfig.replicaName || "";
-        // set default dbUrl and serverUrl - standard standalone DB | TODO: optional/remove, review replica-params
+        // set default dbUrl and serverUrl - standard standalone DB | TODO: optional, review replica-params
         this.dbUrl = this.checkAccess ?
             `mongodb://${this.user}:${this.pass}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}?directConnection=true` :
             `mongodb://${dbConfig.host}:${dbConfig.port}/${dbConfig.database}?directConnection=true`;
@@ -111,7 +111,7 @@ export class DbMongo {
                 username : this.username,
                 password : this.password,
                 db       : this.database,
-                mechanism: "SCRAM-SHA-1",       // TODO: review options
+                mechanism: "SCRAM-SHA-256",
             },
             replicaSet: this.replicaName
             // minPoolSize: this.minPoolSize,

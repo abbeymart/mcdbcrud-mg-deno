@@ -2,6 +2,8 @@ import { assertEquals, mcTest, postTestResult } from "../test_deps.ts";
 import { appDb, dbOptions } from "./config/secure/config.ts";
 import { newDbMongo } from "../src/index.ts";
 
+// RUN: deno run --allow-net --allow-env test/dbc.test.ts
+
 (async () => {
     await mcTest({
         name    : "should successfully connect to the MongoDB - Client",

@@ -5,9 +5,9 @@
  * @Description: mongodb mc-orm model specifications and validation
  */
 
-import validator from "validator";
-import {getParamsMessage, getResMessage, MessageObject, ResponseMessage} from "@mconnect/mcresponse";
-import {ObjectId} from "mongodb";
+import validator from "npm:validator";
+import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, ObjectId, Document, } from "../../deps.ts";
+
 import {
     ComputedMethodsType,
     DataTypes,
@@ -22,24 +22,23 @@ import {
     ValidateMethodResponseType,
     ValidateResponseType,
     ValueToDataTypes,
-} from "./types";
+} from "./types.ts";
 import {
     ActionExistParamsType,
-    ActionParamsType,
-    ActionParamType,
+    BaseModelType, CheckAccessType,
     CrudOptionsType,
     CrudParamsType, ExistParamItemType,
     ExistParamsType,
     newDeleteRecord,
     newGetRecord,
     newGetRecordStream,
-    newSaveRecord,
+    newSaveRecord, ObjectType,
     TaskTypes,
     UserInfoType,
-} from "../crud";
-import {isEmptyObject} from "./helpers";
+} from "../crud/index.ts";
+import { isEmptyObject } from "./helpers.ts";
 
-export class Model {
+export class Model<T extends BaseModelType> {
     private readonly collName: string;
     private readonly docDesc: DocDescType;
     private readonly timeStamp: boolean;
@@ -160,11 +159,10 @@ export class Model {
         return childRelations.length > 0 ? childRelations.map(rel => rel.targetColl) : [];
     }
 
-    // computeExistParam compute the query-object(s) for checking document uniqueness based on model-unique-fields constraints.
-    computeExistParam(actionParam: ActionParamType): ExistParamsType {
+    // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
+    computeExistParam(actionParam: T): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
-        const item = actionParam;
         for (const fields of this.modelUniqueFields) {
             // compute the uniqueness object
             const uniqueObj: ExistParamItemType = {};
@@ -173,19 +171,20 @@ export class Model {
                 if (field === "_id") {
                     continue
                 }
-                // set item value
-                uniqueObj[field] = item[field]
+                // set unique item value
+                uniqueObj[field] = (actionParam as unknown as ObjectType)[field];
             }
-            // append the uniqueObj
-            existParam.push({
-                ...uniqueObj,
-            });
             // add uniqueness object to the existParams, to exclude the existing document(update-task)
-            if (item["_id"] || item["_id"] !== "") {
+            if (actionParam["_id"] || actionParam["_id"] !== "") {
                 existParam.push({
                     _id: {
-                        $ne: new ObjectId(item["_id"] as string),
+                        $ne: new ObjectId(actionParam["_id"] as string),
                     },
+                    ...uniqueObj,
+                });
+            } else {
+                // add uniqueness object to the existParams, to exclude the existing document(create-task)
+                existParam.push({
                     ...uniqueObj,
                 });
             }
@@ -193,12 +192,12 @@ export class Model {
         return existParam;
     }
 
-    // computeExistParams compute the query-object(s) for checking documents uniqueness based on model-unique-fields constraints.
-    computeExistParams(actionParams: ActionParamsType): ActionExistParamsType {
+    // computeExistParams compute the query-object(s) for checking create/update documents uniqueness based on model-unique-fields constraints.
+    computeExistParams(actionParams: Array<T>): ActionExistParamsType {
         // set the existParams for create or update action to determine documents uniqueness
         const existParams: ActionExistParamsType = [];
-        for (const item of actionParams) {
-            const existParam = this.computeExistParam(item)
+        for (const actParam of actionParams) {
+            const existParam = this.computeExistParam(actParam)
             existParams.push(existParam)
         }
         return existParams;
@@ -206,7 +205,7 @@ export class Model {
 
     // computeRequiredFields computes the non-null fields, i.e. allowNull === false.
     computeRequiredFields(): Array<string> {
-        let requiredFields: Array<string> = [];
+        const requiredFields: Array<string> = [];
         for (let [field, fieldDesc] of Object.entries(this.modelDocDesc)) {
             switch (typeof fieldDesc) {
                 case "object":
@@ -224,7 +223,7 @@ export class Model {
     }
 
     // validateRequiredFields validates the non-null field-values, i.e. allowNull === false.
-    validateRequiredFields(actionParam: ActionParamType): ValidateResponseType {
+    validateRequiredFields(doc: T): ValidateResponseType {
         const errors: MessageObject = {};
         const reqFields = this.computeRequiredFields()
         if (reqFields.length < 1) {
@@ -236,7 +235,7 @@ export class Model {
         }
         // validate required field-values
         for (const field of reqFields) {
-            if (!actionParam[field]) {
+            if (!(doc as unknown as ObjectType)[field]) {
                 errors[field] = `Field: ${field} is required (not-null)`;
             }
         }
@@ -254,20 +253,20 @@ export class Model {
 
     // ***** helper methods *****
 
-    // computeDocValueType computes the document-field-value-types (DataTypes).
-    computeDocValueType(docValue: ActionParamType): ValueToDataTypes {
-        let computedTypes: ValueToDataTypes = {};
+    // computeDocValueType computes the document-field-value-types, as DataTypes.
+    computeDocValueType(doc: T): ValueToDataTypes {
+        const computedTypes: ValueToDataTypes = {};
         try {
-            for (const [key, val] of Object.entries(docValue)) {
+            for (const [key, val] of Object.entries(doc)) {
                 // const val: any = docValue[key];
                 if (Array.isArray(val)) {
-                    if (val.every((item: any) => typeof item === "number")) {
+                    if (val.every((item) => typeof item === "number")) {
                         computedTypes[key] = DataTypes.ARRAY_NUMBER;
-                    } else if (val.every((item: any) => typeof item === "string")) {
+                    } else if (val.every((item) => typeof item === "string")) {
                         computedTypes[key] = DataTypes.ARRAY_STRING;
-                    } else if (val.every((item: any) => typeof item === "boolean")) {
+                    } else if (val.every((item) => typeof item === "boolean")) {
                         computedTypes[key] = DataTypes.ARRAY_BOOLEAN;
-                    } else if (val.every((item: any) => typeof item === "object")) {
+                    } else if (val.every((item) => typeof item === "object")) {
                         computedTypes[key] = DataTypes.ARRAY_OBJECT;
                     } else {
                         computedTypes[key] = DataTypes.ARRAY;
@@ -337,10 +336,11 @@ export class Model {
     }
 
     // setDefaultValue set the default document-field-values for no-value fields and if specified, setValue (transform).
-    async setDefaultValues(docValue: ActionParamType): Promise<ActionParamType> {
+    async setDefaultValues(doc: T): Promise<T> {
+        const docValue = doc as unknown as ObjectType;
         try {
             // set base docValue
-            const setDocValue = docValue;
+            const setDocValue: ObjectType = docValue as unknown as ObjectType;
             // perform defaultValue task
             for (const [key, val] of Object.entries(docValue)) {
                 // defaultValue setting applies to FieldDescType only | otherwise, the value is null (by default, i.e. allowNull=>true)
@@ -349,7 +349,7 @@ export class Model {
                 // set default values for no-value field only
                 if (!docFieldValue) {
                     switch (typeof docFieldDesc) {
-                        case "object":
+                        case "object": {
                             docFieldDesc = docFieldDesc as FieldDescType;
                             let defaultValue = docFieldDesc?.defaultValue ? docFieldDesc.defaultValue : null;
                             // type of defaultValue and docFieldValue must be equivalent (re: validateMethod)
@@ -369,24 +369,26 @@ export class Model {
                                 }
                             }
                             break;
+                        }
                         default:
                             break;
                     }
                 }
                 // setValue / transform field-value prior-to/before save-task (create / update)
                 switch (typeof docFieldDesc) {
-                    case "object":
+                    case "object": {
                         docFieldDesc = docFieldDesc as FieldDescType;
                         const fieldValue = setDocValue[key];    // set applies to existing field-value only
                         if (fieldValue && docFieldDesc.setValue) {
                             setDocValue[key] = await docFieldDesc.setValue(fieldValue);
                         }
                         break;
+                    }
                     default:
                         break;
                 }
             }
-            return setDocValue;
+            return setDocValue as unknown as T;
         } catch (e) {
             console.log("default-error: ", e);
             throw new Error(e.message);
@@ -394,7 +396,7 @@ export class Model {
     }
 
     // validateDocValue validates the docValue by model definition (this.modelDocDesc)
-    async validateDocValue(docValue: ActionParamType, docValueTypes: ValueToDataTypes): Promise<ValidateResponseType> {
+    validateDocValue(doc: T, docValueTypes: ValueToDataTypes): ValidateResponseType {
         let errors: MessageObject = {};
         try {
             // use values from transformed docValue, including default/set-values, prior to validation
@@ -402,7 +404,7 @@ export class Model {
             const docDesc = this.modelDocDesc;
             // combine errors/messages
             // perform model-defined docValue (document-field-values) validation
-            for (const [key, val] of Object.entries(docValue)) {
+            for (const [key, val] of Object.entries(doc)) {
                 let fieldDesc = docDesc[key] || null;
                 const fieldValue = val || null
                 // check field description / definition in the model-field-description
@@ -433,11 +435,11 @@ export class Model {
                         }
                         // fieldLength-validation
                         if (fieldValue && fieldDesc.fieldLength && fieldDesc.fieldLength > 0) {
-                            const fieldLength = (fieldValue as string).length;
+                            const fieldLength = fieldValue.toString().length;
                             if (fieldLength > fieldDesc.fieldLength) {
                                 errors[`${key}-lengthValidation`] = fieldDesc.validateMessage ?
-                                    fieldDesc.validateMessage + ` | Size of ${key} cannot be longer than ${fieldDesc.fieldLength}` :
-                                    `Size of ${key} cannot be longer than ${fieldDesc.fieldLength}`;
+                                    fieldDesc.validateMessage + ` | Length of ${key}[${fieldLength}] cannot be longer than ${fieldDesc.fieldLength}` :
+                                    `Length of ${key}[${fieldLength}] cannot be longer than ${fieldDesc.fieldLength}`;
                             }
                         }
                         // min/maxValues-validation for number-types and date-type field-values
@@ -457,40 +459,40 @@ export class Model {
                             } else if (fieldDesc.minValue) {
                                 const numMinValue = fieldDesc.minValue;
                                 if (numFieldValue < numMinValue) {
-                                    errors[`${key}-minMaxValidation`] = fieldDesc.validateMessage ?
+                                    errors[`${key}-minValidation`] = fieldDesc.validateMessage ?
                                         fieldDesc.validateMessage + ` | Value of: ${key} cannot be less than ${numMinValue}.` :
                                         `Value of: ${key} cannot be less than ${numMinValue}.`;
                                 }
                             } else if (fieldDesc.maxValue) {
                                 const numMaxValue = fieldDesc.maxValue;
                                 if (numFieldValue > numMaxValue) {
-                                    errors[`${key}-minMaxValidation`] = fieldDesc.validateMessage ?
+                                    errors[`${key}-maxValidation`] = fieldDesc.validateMessage ?
                                         fieldDesc.validateMessage + ` | Value of: ${key} cannot be greater than ${numMaxValue}.` :
                                         `Value of: ${key} cannot be greater than ${numMaxValue}.`;
                                 }
                             }
                         } else if (fieldValue && (docValueTypes[key] === DataTypes.STRING || docValueTypes[key] === DataTypes.DATETIME)) {
                             // date value, excluding time portion, for comparison
-                            const dateFieldValue = (new Date(fieldValue as string)).setHours(0, 0, 0, 0);
+                            const dateFieldValue = (new Date(fieldValue.toString())).setHours(0, 0, 0, 0);
                             if (fieldDesc.minValue && fieldDesc.maxValue) {
-                                const dateMinValue = (new Date(fieldDesc.minValue)).setHours(0, 0, 0, 0);
-                                const dateMaxValue = (new Date(fieldDesc.maxValue)).setHours(0, 0, 0, 0);
+                                const dateMinValue = (new Date(fieldDesc.minValue.toString())).setHours(0, 0, 0, 0);
+                                const dateMaxValue = (new Date(fieldDesc.maxValue.toString())).setHours(0, 0, 0, 0);
                                 if ((dateFieldValue < dateMinValue || dateFieldValue > dateMaxValue)) {
                                     errors[`${key}-minMaxValidation`] = fieldDesc.validateMessage ?
                                         fieldDesc.validateMessage + ` | Value of: ${key} must be greater than ${dateMinValue}, and less than ${dateMaxValue}` :
                                         `Value of: ${key} must be greater than ${dateMinValue}, and less than ${dateMaxValue}`;
                                 }
                             } else if (fieldDesc.minValue) {
-                                const dateMinValue = (new Date(fieldDesc.minValue)).setHours(0, 0, 0, 0);
+                                const dateMinValue = (new Date(fieldDesc.minValue.toString())).setHours(0, 0, 0, 0);
                                 if (dateFieldValue < dateMinValue) {
-                                    errors[`${key}-minMaxValidation`] = fieldDesc.validateMessage ?
+                                    errors[`${key}-minValidation`] = fieldDesc.validateMessage ?
                                         fieldDesc.validateMessage + ` | Value of: ${key} cannot be less than ${dateMinValue}.` :
                                         `Value of: ${key} cannot be less than ${dateMinValue}.`;
                                 }
                             } else if (fieldDesc.maxValue) {
-                                const dateMaxValue = (new Date(fieldDesc.maxValue)).setHours(0, 0, 0, 0);
+                                const dateMaxValue = (new Date(fieldDesc.maxValue.toString())).setHours(0, 0, 0, 0);
                                 if (dateFieldValue > dateMaxValue) {
-                                    errors[`${key}-minMaxValidation`] = fieldDesc.validateMessage ?
+                                    errors[`${key}-maxValidation`] = fieldDesc.validateMessage ?
                                         fieldDesc.validateMessage + ` | Value of: ${key} cannot be greater than ${dateMaxValue}.` :
                                         `Value of: ${key} cannot be greater than ${dateMaxValue}.`;
                                 }
@@ -517,7 +519,7 @@ export class Model {
                         // notStartsWith
                         if (fieldValue && fieldDesc.notStartsWith) {
                             const testPattern = fieldValue.toString().startsWith(fieldDesc.notStartsWith);
-                            if (!testPattern) {
+                            if (testPattern) {
                                 errors[`${key}-notStartsWithValidation`] = fieldDesc.validateMessage ?
                                     fieldDesc.validateMessage + ` | Value of: ${key} must not start with ${fieldDesc.notStartsWith}.` :
                                     `Value of: ${key} must not start with ${fieldDesc.notStartsWith}.`;
@@ -525,7 +527,7 @@ export class Model {
                         }
                         // endsWith
                         if (fieldValue && fieldDesc.endsWith) {
-                            const testPattern = fieldValue.toString().startsWith(fieldDesc.endsWith);
+                            const testPattern = fieldValue.toString().endsWith(fieldDesc.endsWith);
                             if (!testPattern) {
                                 errors[`${key}-endsWithValidation`] = fieldDesc.validateMessage ?
                                     fieldDesc.validateMessage + ` | Value of: ${key} must end with ${fieldDesc.endsWith}.` :
@@ -534,8 +536,8 @@ export class Model {
                         }
                         // notEndsWith
                         if (fieldValue && fieldDesc.notEndsWith) {
-                            const testPattern = fieldValue.toString().startsWith(fieldDesc.notEndsWith);
-                            if (!testPattern) {
+                            const testPattern = fieldValue.toString().endsWith(fieldDesc.notEndsWith);
+                            if (testPattern) {
                                 errors[`${key}-notEndsWithValidation`] = fieldDesc.validateMessage ?
                                     fieldDesc.validateMessage + ` | Value of: ${key} must not end with ${fieldDesc.notEndsWith}.` :
                                     `Value of: ${key} must not end with ${fieldDesc.notEndsWith}.`;
@@ -543,7 +545,7 @@ export class Model {
                         }
                         // includes
                         if (fieldValue && fieldDesc.includes) {
-                            const testPattern = fieldValue.toString().startsWith(fieldDesc.includes);
+                            const testPattern = fieldValue.toString().includes(fieldDesc.includes);
                             if (!testPattern) {
                                 errors[`${key}-includeValidation`] = fieldDesc.validateMessage ?
                                     fieldDesc.validateMessage + ` | Value of: ${key} must include ${fieldDesc.includes}.` :
@@ -552,8 +554,8 @@ export class Model {
                         }
                         // excludes
                         if (fieldValue && fieldDesc.excludes) {
-                            const testPattern = fieldValue.toString().startsWith(fieldDesc.excludes);
-                            if (!testPattern) {
+                            const testPattern = fieldValue.toString().includes(fieldDesc.excludes);
+                            if (testPattern) {
                                 errors[`${key}-includeValidation`] = fieldDesc.validateMessage ?
                                     fieldDesc.validateMessage + ` | Value of: ${key} must exclude ${fieldDesc.excludes}.` :
                                     `Value of: ${key} must exclude ${fieldDesc.excludes}.`;
@@ -568,7 +570,7 @@ export class Model {
             // perform user-defined document validation
             const modelValidateMethod = this.modelValidateMethod || null;
             if (modelValidateMethod) {
-                const valRes = modelValidateMethod(docValue);
+                const valRes = modelValidateMethod(doc);
                 if (!isEmptyObject(valRes.errors) || !valRes.ok) {
                     // update docValue validation errors object
                     errors = {...errors, ...valRes.errors}
@@ -592,7 +594,7 @@ export class Model {
 
     // ***** crud operations / methods : interface to the CRUD modules *****
 
-    async save(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async save(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         try {
             // model specific params
             params.coll = this.modelCollName;
@@ -610,7 +612,7 @@ export class Model {
             // get docValue transformed types (as DataTypes) | one iteration only for actionParams[0]
             const docValueTypes = this.computeDocValueType(params.actionParams[0]);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
-            let actParams: ActionParamsType = []
+            const actParams: Array<T> = []
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
                 const modelDocValue = await this.setDefaultValues(docValue);
@@ -633,7 +635,7 @@ export class Model {
             const crud = newSaveRecord(params, options);
             // determine / set taskType (CREATE/INSERT or UPDATE) | permission (if checkAccess: true)
             // determine taskType - create or update (not both):
-            let docIds: Array<string> = [];
+            const docIds: Array<string> = [];
             for (const rec of params.actionParams) {
                 if (rec["_id"]) {
                     docIds.push(rec["_id"] as string);
@@ -667,7 +669,7 @@ export class Model {
                 }
             }
             let accessRes: ResponseMessage;
-            if (this.checkAccess && !loginStatusRes.value.isAdmin) {
+            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
                 if (params.taskType === TaskTypes.UPDATE) {
                     if (params.docIds!.length > 0) {
                         accessRes = await crud.taskPermissionById(params.taskType);
@@ -701,7 +703,7 @@ export class Model {
         }
     }
 
-    async get(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async get(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         try {
             // model specific params
             params.coll = this.modelCollName;
@@ -722,7 +724,7 @@ export class Model {
             }
             let accessRes: ResponseMessage;
             // loginStatusRes.value.isAdmin
-            if (this.checkAccess && !loginStatusRes.value.isAdmin) {
+            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
                 if (params.docIds && params.docIds.length > 0) {
                     accessRes = await crud.taskPermissionById(params.taskType);
                     if (accessRes.code !== "success") {
@@ -746,7 +748,7 @@ export class Model {
         }
     }
 
-    async getStream(params: CrudParamsType, options: CrudOptionsType = {}): Promise<AsyncIterable<Document>> {
+    async getStream(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<AsyncIterable<Document>> {
         // get stream of document(s), returning a cursor or error
         try {
             // model specific params
@@ -767,7 +769,7 @@ export class Model {
                 }
             }
             let accessRes: ResponseMessage;
-            if (this.checkAccess && !loginStatusRes.value.isAdmin) {
+            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
                 if (params.docIds && params.docIds.length > 0) {
                     accessRes = await crud.taskPermissionById(params.taskType);
                     if (accessRes.code !== "success") {
@@ -792,7 +794,7 @@ export class Model {
         }
     }
 
-    async lookup(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async lookup(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         // get lookup documents based on queryParams and model-relations definition
         try {
             // model specific params
@@ -813,7 +815,7 @@ export class Model {
         }
     }
 
-    async delete(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async delete(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         // validate queryParams based on model/docDesc
         try {
             // model specific params
@@ -843,7 +845,7 @@ export class Model {
                 }
             }
             let accessRes: ResponseMessage;
-            if (this.checkAccess && !loginStatusRes.value.isAdmin) {
+            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
                 if (params.docIds && params.docIds.length > 0) {
                     accessRes = await crud.taskPermissionById(params.taskType);
                     if (accessRes.code !== "success") {

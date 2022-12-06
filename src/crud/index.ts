@@ -14,4 +14,3 @@ export * from "./GetRecord.ts";
 export * from "./GetRecordStream.ts";
 export * from "./DeleteRecord.ts";
 export * from "./LoadRecord.ts";
-// export * from "./model";

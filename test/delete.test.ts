@@ -6,25 +6,27 @@ import {
     TestUserInfo
 } from "./testData.ts";
 import {appDb, auditDb, dbOptions} from "./config/secure/config.ts";
-import {DBRef, MongoClient} from "../deps.ts";
-
+import {Database, MongoClient} from "../deps.ts";
+import { AuditType } from "../../mcdbcrud/test/testData.ts";
 
 const appDbInstance = newDbMongo(appDb, dbOptions);
 const auditDbInstance = newDbMongo(auditDb, dbOptions);
 
-let appDbHandle: DBRef;
+let appDbHandle: Database;
 let appDbClient: MongoClient;
-let auditDbHandle: DBRef;
+let auditDbHandle: Database;
 let auditDbClient: MongoClient;
 
 (async () => {
     // DB clients/handles
+    
+    
     appDbHandle = await appDbInstance.openDb()
     appDbClient = await appDbInstance.mgServer()
     auditDbHandle = await auditDbInstance.openDb()
     auditDbClient = await auditDbInstance.mgServer()
 
-    const crudParams: CrudParamsType = {
+    const crudParams: CrudParamsType<AuditType> = {
         appDb      : appDbHandle,
         dbClient   : appDbClient,
         dbName     : appDb.database || "",

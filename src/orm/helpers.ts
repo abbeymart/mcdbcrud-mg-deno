@@ -5,17 +5,17 @@
  * @Description: mongodb-orm helper functions
  */
 
-import { DataTypes, FieldDescType, ModelDescType, ValueParamsType } from "./types";
-import {ActionParamsType, FieldValueTypes, ObjectRefType, ObjectType} from "../crud";
-import { getResMessage, ResponseMessage } from "@mconnect/mcresponse";
+import { DataTypes, FieldDescType, ModelDescType, ValueParamsType } from "./types.ts";
+import { BaseModelType, ObjectType } from "../crud/index.ts";
+import { getResMessage, ResponseMessage } from "../../deps.ts";
 
 // isEmptyObject validates is an object contains no keys and/or values
-export function isEmptyObject(val: ObjectRefType): boolean {
+export function isEmptyObject(val: ObjectType): boolean {
     return !(Object.keys(val).length > 0 && Object.values(val).length > 0);
 }
 
 // validateActionParams validates actParams for save (create or update) operation
-export function validateActionParams(actParams: ActionParamsType = []): ResponseMessage {
+export function validateActionParams<T extends BaseModelType>(actParams: Array<T> = []): ResponseMessage {
     // validate req-params: actionParams must be array or 1 or more item(s)
     if (actParams.length < 1) {
         return getResMessage('validateError', {
@@ -60,15 +60,11 @@ export function jsonToCrudSaveParams(model: ModelDescType, docValue: ValueParams
     }
 }
 
-export function dataTypesETL(desc: DataTypes, docValue: ValueParamsType): ValueParamsType {
-    let result: ValueParamsType = {};
-
-    return result;
+export function dataTypesETL(_desc: DataTypes, _docValue: ValueParamsType): ValueParamsType {
+    return {};
 
 }
 
-export function fieldDescTypeETL(desc: FieldDescType, docValue: ValueParamsType): ValueParamsType {
-    let result: ValueParamsType = {};
-
-    return result;
+export function fieldDescTypeETL(_desc: FieldDescType, _docValue: ValueParamsType): ValueParamsType {
+    return {};
 }

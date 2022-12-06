@@ -5,7 +5,7 @@
  * @Description: mc-orm types
  */
 
-import {FieldValueTypes} from "../crud";
+import {FieldValueTypes} from "../crud/index.ts";
 
 export enum DataTypes {
     STRING = "string",
@@ -111,8 +111,8 @@ export interface FieldDescType {
     unique?: boolean;
     indexable?: boolean;
     primaryKey?: boolean;
-    minValue?: number;
-    maxValue?: number;
+    minValue?: number | Date;
+    maxValue?: number | Date;
     setValue?: SetValueType;    // set/transform fieldValue prior to save(create/insert), T=>fieldType
     defaultValue?: DefaultValueType | FieldValueTypes;  // result/T must be of fieldType
     validate?: ValidateMethodType;  // T=>fieldType, returns a bool (valid=true/invalid=false)
