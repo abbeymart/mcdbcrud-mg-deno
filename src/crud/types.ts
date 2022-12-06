@@ -34,7 +34,7 @@ export interface ActionParamType {
     [key: string]: ValueType;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
 }
 
-export type ActionParamsType<T extends Document> = Array<DocumentParamsType<T>>;  // documents for create or update task/operation
+export type ActionParamsType<T extends BaseModelType> = Array<T>;  // documents for create or update task/operation
 
 export interface QueryParamsType {
     [key: string]: ValueType;
@@ -87,14 +87,14 @@ export interface GetRecordStats {
 
 export type GetRecords = Array<ObjectType>;
 
-export interface GetResultType {
+export interface GetResultType<T extends BaseModelType> {
     records: GetRecords,
     stats: GetRecordStats,
     logRes?: ResponseMessage;
     taskType?: string;
 }
 
-export interface CrudResultType<T extends Document> {
+export interface CrudResultType<T extends BaseModelType> {
     queryParam?: QueryParamsType;
     recordIds?: Array<string>;
     recordsCount?: number;
@@ -282,7 +282,7 @@ export type PromiseResponseType = Promise<string>
     | Promise<Array<boolean>>
     | Promise<Array<ValueType>>;
 
-export interface ActionParamTaskType<T extends Document> {
+export interface ActionParamTaskType<T extends BaseModelType> {
     createItems: Array<T>;
     updateItems: Array<T>;
     docIds: Array<string>;
@@ -297,7 +297,7 @@ export interface AppParamsType {
     serviceTag?: string;
 }
 
-export interface CrudParamsType<T extends Document> {
+export interface CrudParamsType<T extends BaseModelType> {
     appDb: Database;
     coll: string;
     dbClient: MongoClient;

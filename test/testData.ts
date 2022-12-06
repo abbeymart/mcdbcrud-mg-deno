@@ -128,7 +128,7 @@ const categoryOptions: ModelCrudOptionsType = {
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
 export const AuditModel: AuditType = {
-    _id              : "",
+    _id             : "",
     collName        : "",
     collDocuments   : {},
     newCollDocuments: {},
@@ -137,18 +137,18 @@ export const AuditModel: AuditType = {
     logAt           : new Date(),
 }
 
-export const AuditTable = "audits"
-export const GetTable = "audits"
-export const DeleteTable = "audits_delete"
-export const DeleteAllTable = "audits_delete_all"
-export const UpdateTable = "audits_update"
+export const auditColl = "audits"
+export const getColl = "audits"
+export const deleteColl = "audits_delete"
+export const deleteAllColl = "audits_delete_all"
+export const updateColl = "audits_update"
 
-export const GroupTable = collections.GROUPS
-export const CategoryTable = collections.CATEGORIES
+export const groupTable = collections.GROUPS
+export const categoryTable = collections.CATEGORIES
 
 export const UserId = "c85509ac-7373-464d-b667-425bb59b5738" // TODO: review/update
 
-export const TestUserInfo: UserInfoType = {
+export const testUserInfo: UserInfoType = {
     userId   : "c85509ac-7373-464d-b667-425bb59b5738",
     loginName: "abbeymart",
     email    : "abbeya1@yahoo.com",
@@ -159,7 +159,7 @@ export const TestUserInfo: UserInfoType = {
     expire   : 0,
 }
 
-export const CrudParamOptions: CrudOptionsType = {
+export const crudParamOptions: CrudOptionsType = {
     checkAccess  : false,
     auditColl    : "audits",
     userColl     : "users",
@@ -232,17 +232,17 @@ export const AuditCreateRec2: ActionParamType = {
 }
 
 export const AuditUpdateRec1: AuditType = {
-    _id           : "c1c3f614-b10d-40a4-9269-4e03f5fcf55e",
-    collName    : "todos",
-    logAt      : new Date(),
-    logBy       : UserId,
-   collDocuments   : LogRecords,
+    _id             : "c1c3f614-b10d-40a4-9269-4e03f5fcf55e",
+    collName        : "todos",
+    logAt           : new Date(),
+    logBy           : UserId,
+    collDocuments   : LogRecords,
     newCollDocuments: NewLogRecords,
-    logType      : TaskTypes.UPDATE,
+    logType         : TaskTypes.UPDATE,
 }
 
 export const AuditUpdateRec2: AuditType = {
-    _id              : "003c1422-c7cb-476f-b96f-9c8028e04a14",
+    _id             : "003c1422-c7cb-476f-b96f-9c8028e04a14",
     collName        : "todos",
     logAt           : new Date(),
     logBy           : UserId,

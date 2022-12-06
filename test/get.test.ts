@@ -1,10 +1,12 @@
-import {assertEquals, assertNotEquals, mcTest, postTestResult} from "../test_deps.ts";
-import {appDb, auditDb, dbOptions} from "./config/secure/config.ts";
-import {CrudOptionsType, CrudParamsType, GetResultType, newDbMongo, newGetRecord} from "../src/index.ts";
+import { assertEquals, assertNotEquals, mcTest, postTestResult } from "../test_deps.ts";
+import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
 import {
-    CrudParamOptions, GetTable, TestUserInfo, GetAuditById, GetAuditByIds, GetAuditByParams, AuditTable
+    CrudParamsType, GetResultType,
+    newDbMongo, newGetRecord, AuditType
+} from "../src/index.ts";
+import {
+    crudParamOptions, getColl, testUserInfo, GetAuditById, GetAuditByIds, GetAuditByParams, auditColl
 } from "./testData.ts";
-import { AuditType } from "../../mcdbcrud/test/testData.ts";
 
 
 (async () => {
@@ -21,34 +23,25 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
         appDb      : appDbHandle,
         dbClient   : appDbClient,
         dbName     : appDb.database || "",
-        coll       : GetTable,
-        userInfo   : TestUserInfo,
+        coll       : getColl,
+        userInfo   : testUserInfo,
         docIds     : [],
         queryParams: {},
     };
 
-    const crudOptions: CrudOptionsType = {
-        auditDb      : auditDbHandle,
-        auditDbClient: auditDbClient,
-        auditDbName  : appDb.database,
-        auditColl    : AuditTable,
-        checkAccess  : false,
-        logCrud      : true,
-        logRead      : true,
-        logCreate    : true,
-        logDelete    : true,
-        logUpdate    : true,
-        cacheResult  : false,
-    }
+    crudParamOptions.auditDb = auditDbHandle;
+    crudParamOptions.auditDbClient = auditDbClient;
+    crudParamOptions.auditDbName = appDb.database;
+    crudParamOptions.auditColl = auditColl;
 
     await mcTest({
         name    : "should get records by Id and return success:",
         testFunc: async () => {
             crudParams.docIds = [GetAuditById]
             crudParams.queryParams = {}
-            const crud = newGetRecord(crudParams, CrudParamOptions);
+            const crud = newGetRecord(crudParams, crudParamOptions);
             const res = await crud.getRecord()
-            const resValue = res.value as GetResultType
+            const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
@@ -63,9 +56,9 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
         testFunc: async () => {
             crudParams.docIds = GetAuditByIds
             crudParams.queryParams = {}
-            const crud = newGetRecord(crudParams, CrudParamOptions);
+            const crud = newGetRecord(crudParams, crudParamOptions);
             const res = await crud.getRecord()
-            const resValue = res.value as GetResultType
+            const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
@@ -80,9 +73,9 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
         testFunc: async () => {
             crudParams.docIds = []
             crudParams.queryParams = GetAuditByParams
-            const crud = newGetRecord(crudParams, CrudParamOptions);
+            const crud = newGetRecord(crudParams, crudParamOptions);
             const res = await crud.getRecord()
-            const resValue = res.value as GetResultType
+            const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
@@ -95,13 +88,13 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
     await mcTest({
         name    : "should get all records and return success:",
         testFunc: async () => {
-            crudParams.coll = GetTable
+            crudParams.coll = getColl
             crudParams.docIds = []
             crudParams.queryParams = {}
-            CrudParamOptions.getAllRecords = true
-            const crud = newGetRecord(crudParams, CrudParamOptions);
+            crudParamOptions.getAllRecords = true
+            const crud = newGetRecord(crudParams, crudParamOptions);
             const res = await crud.getRecord()
-            const resValue = res.value as GetResultType
+            const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
@@ -114,15 +107,15 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
     await mcTest({
         name    : "should get all records by limit/skip(offset) and return success:",
         testFunc: async () => {
-            crudParams.coll = GetTable
+            crudParams.coll = getColl
             crudParams.docIds = []
             crudParams.queryParams = {}
             crudParams.skip = 0
             crudParams.limit = 20
-            CrudParamOptions.getAllRecords = true
-            const crud = newGetRecord(crudParams, CrudParamOptions);
+            crudParamOptions.getAllRecords = true
+            const crud = newGetRecord(crudParams, crudParamOptions);
             const res = await crud.getRecord()
-            const resValue = res.value as GetResultType
+            const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
@@ -132,7 +125,7 @@ import { AuditType } from "../../mcdbcrud/test/testData.ts";
         }
     });
 
-    await postTestResult();
+    postTestResult();
     await appDbInstance.closeDb();
     await auditDbInstance.closeDb();
 
