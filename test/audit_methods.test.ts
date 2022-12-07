@@ -8,7 +8,7 @@ const recs = {name: "Abi", desc: "Testing only", url: "localhost:9000", priority
 const newRecs = {
     name: "Abi Akindele", desc: "Testing only - updated", url: "localhost:9900", priority: 1, cost: 2000.00
 }
-const readP = {keywords: ["lagos", "nigeria", "ghana", "accra"]};
+const readP = {keywords: ["lagos", "yoruba", "ghana", "accra"]};
 
 
 (async () => {
@@ -109,7 +109,7 @@ const readP = {keywords: ["lagos", "nigeria", "ghana", "accra"]};
             };
             const res = await mcLog.createLog("", logParams)
             assertEquals(res.code, "paramsError", `res.Code should be: paramsError`);
-            assertEquals(res.message.includes("Table or Collection name is required"), true, `res-message should include: Table or Collection name is required`);
+            assertEquals(res.message.includes("userId is required"), true, `res-message should include: Table or Collection name is required`);
         }
     });
 

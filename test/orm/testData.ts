@@ -4,8 +4,8 @@ import {
     UserInfoType, CrudOptionsType, ActionParamType,
     TaskTypes, QueryParamsType, ModelRelationType, RelationTypes, RelationActionTypes, ModelDescType,
     BaseModel, DataTypes, ModelCrudOptionsType, newModel, AuditType, ObjectType, LogDocumentsType,
-} from "../src/index.ts"
-import { collections } from "./collections.ts";
+} from "../../src/index.ts"
+import { collections } from "../collections.ts";
 
 // Models
 
@@ -216,7 +216,7 @@ export const NewLogRecords2: ObjectType = {
 // create record(s)
 
 export const AuditCreateRec1: ObjectType = {
-    "collName"  : "audits",
+    "collName" : "audits",
     "logAt"     : new Date(),
     "logBy"     : UserId,
     "logRecords": LogRecords,
@@ -224,7 +224,7 @@ export const AuditCreateRec1: ObjectType = {
 }
 
 export const AuditCreateRec2: ObjectType = {
-    "collName"  : "audits",
+    "collName" : "audits",
     "logAt"     : new Date(),
     "logBy"     : UserId,
     "logRecords": LogRecords2,
@@ -265,7 +265,7 @@ export const AuditUpdateActionParams: Array<AuditType> = [
 
 export const AuditUpdateRecordById: ObjectType = {
     "id"           : "638fd873a02862d754fa0247",
-    "collName"     : "groups",
+    "collName"    : "groups",
     "logAt"        : new Date(),
     "logBy"        : UserId,
     "logRecords"   : LogRecords,
@@ -275,7 +275,7 @@ export const AuditUpdateRecordById: ObjectType = {
 
 export const AuditUpdateRecordByParam: ActionParamType = {
     "id"           : "638fd873a02862d754fa0248",
-    "collName"     : "contacts",
+    "collName"    : "contacts",
     "logAt"        : new Date(),
     "logBy"        : UserId,
     "logRecords"   : LogRecords,

@@ -1,14 +1,14 @@
-import { assertEquals, mcTest, postTestResult } from "../test_deps.ts";
+import { assertEquals, mcTest, postTestResult } from "../../test_deps.ts";
 import {
     AuditType, CrudParamsType, CrudResultType,
     newDbMongo, newSaveRecord
-} from "../src/index.ts";
+} from "../../src/index.ts";
 import {
     AuditCreateActionParams, auditColl, AuditUpdateActionParams, AuditUpdateRecordById, AuditUpdateRecordByParam,
     crudParamOptions,
-    getColl, testUserInfo, UpdateAuditById, UpdateAuditByIds, UpdateAuditByParams, updateColl
+    getColl, GroupModel, testUserInfo, UpdateAuditById, UpdateAuditByIds, UpdateAuditByParams, updateColl
 } from "./testData.ts";
-import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
+import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 
 (async () => {
     // DB clients/handles
@@ -36,15 +36,15 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
     crudParamOptions.auditColl = auditColl;
 
     await mcTest({
-        name    : "should create two new records and return success:",
+        name    : "should create two new records [groups] and return success:",
         testFunc: async () => {
             crudParams.actionParams = AuditCreateActionParams
             crudParams.docIds = []
             crudParams.queryParams = {}
             const recLen = crudParams.actionParams?.length || 0
-            const crud = newSaveRecord(crudParams, crudParamOptions);
-            const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            // const crud = newSaveRecord(crudParams, CrudParamOptions);
+            const res = await GroupModel.save(crudParams, crudParamOptions)
+            // console.log("create-result: ", res, res.code, res.value.docIds, res.value.recordCount)
             const resValue = res.value as unknown as CrudResultType<AuditType>
             const idLen = resValue.recordIds?.length || 0
             const recCount = resValue.recordsCount || 0
@@ -63,8 +63,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             crudParams.queryParams = {}
             const recLen = crudParams.actionParams?.length || 0
             const crud = newSaveRecord(crudParams, crudParamOptions);
-            const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            const res = await crud.saveRecord()
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const idLen = resValue.recordIds?.length || 0
             const recCount = resValue.recordsCount || 0
@@ -84,7 +83,6 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const recLen = crudParams.docIds.length;
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();
-            console.log("create-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const idLen = resValue.recordIds?.length || 0;
             const recCount = resValue.recordsCount || 0;
@@ -103,8 +101,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             crudParams.queryParams = {}
             const recLen = crudParams.docIds.length
             const crud = newSaveRecord(crudParams, crudParamOptions);
-            const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            const res = await crud.saveRecord()
             const resValue = res.value as unknown as CrudResultType<AuditType>
             const idLen = resValue.recordIds?.length || 0
             const recCount = resValue.recordsCount || 0
@@ -123,8 +120,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             crudParams.queryParams = UpdateAuditByParams
             const recLen = 0
             const crud = newSaveRecord(crudParams, crudParamOptions);
-            const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            const res = await crud.saveRecord()
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const recCount = resValue.recordsCount || 0
             assertEquals(res.code, "success", `create-task should return code: success`);

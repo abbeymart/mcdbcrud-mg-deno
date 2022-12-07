@@ -81,7 +81,7 @@ export interface GetRecordStats {
     recordsCount?: number;
     totalRecordsCount?: number;
     queryParams?: QueryParamsType;
-    recordIds?: Array<string>;
+    docIds?: Array<string>;
     expire?: number;
 }
 
@@ -96,7 +96,7 @@ export interface GetResultType<T extends BaseModelType> {
 
 export interface CrudResultType<T extends BaseModelType> {
     queryParam?: QueryParamsType;
-    recordIds?: Array<string>;
+    docIds?: Array<string>;
     recordsCount?: number;
     records?: Array<T>;
     taskType?: string;
@@ -105,7 +105,7 @@ export interface CrudResultType<T extends BaseModelType> {
 
 export interface SaveResultType {
     queryParam?: QueryParamsType;
-    recordIds?: Array<string>;
+    docIds?: Array<string>;
     recordsCount?: number;
     taskType?: string;
     logRes?: ResponseMessage;
@@ -128,7 +128,7 @@ export enum TaskTypes {
 export interface LogRecordsType {
     logRecords?: ValueType;
     queryParams?: QueryParamsType;
-    recordIds?: Array<string>;
+    docIds?: Array<string>;
     tableFields?: Array<string>;
 }
 

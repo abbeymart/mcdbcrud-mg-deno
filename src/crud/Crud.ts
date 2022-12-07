@@ -178,7 +178,7 @@ export class Crud<T extends BaseModelType> {
         this.currentRecs = [];
         this.roleServices = [];
         this.subItems = [];
-        this.isRecExist = true;
+        this.isRecExist = false;
         this.actionAuthorized = false;
         this.recExistMessage = "Save / update error or duplicate documents exist. ";
         this.unAuthorizedMessage = "Action / task not authorised or permitted. ";
@@ -259,7 +259,7 @@ export class Crud<T extends BaseModelType> {
                 }
             }
             if (this.isRecExist) {
-                return getResMessage("recExist", {
+                return getResMessage("recordExist", {
                     message: `Document/Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create or update record(s).`,
                 });
             } else {
@@ -284,52 +284,54 @@ export class Crud<T extends BaseModelType> {
                 return validDb;
             }
             let currentRecords: Array<T>;
+            const appDbColl = this.appDb.collection<T>(this.coll);
             switch (by.toLowerCase()) {
                 case "id": {
+                    console.log("get-by-ids: ", this.docIds)
                     const docIds = this.docIds.map(id => new ObjectId(id));
-                    const qParams = {_id: {$in: docIds}} as QueryParamsType;
-                    currentRecords = await this.appDb.collection<T>(this.coll)
-                        .find(qParams as Filter<ValueType>)
+                    const qParams: QueryParamsType = {_id: {$in: docIds}};
+                    currentRecords = await appDbColl.find(qParams as Filter<ValueType>)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
                     break;
                 }
                 case "queryparams":
-                    currentRecords = await this.appDb.collection<T>(this.coll)
-                        .find(this.queryParams as Filter<ValueType>)
+                    console.log("get-by-qParams: ", this.queryParams);
+                    currentRecords = await appDbColl.find(this.queryParams as Filter<ValueType>)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
                     break;
                 default:
-                    currentRecords = await this.appDb.collection<T>(this.coll)
-                        .find({},)
+                    currentRecords = await appDbColl.find({},)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
                     break;
             }
-            if (by.toLowerCase() === "id") {
-                if (currentRecords.length > 0 && currentRecords.length === this.docIds.length) {
-                    // update crud instance current-records value
-                    this.currentRecs = currentRecords;
-                    return getResMessage("success", {
-                        message: `${currentRecords.length} document/record(s) retrieved successfully.`,
-                        value  : currentRecords as unknown as Array<ObjectType>,
-                    });
-                } else if (currentRecords.length > 0 && currentRecords.length < this.docIds.length) {
-                    return getResMessage("partialRecords", {
-                        message: `${currentRecords.length} out of ${this.docIds.length} document/record(s) found`,
-                        value  : currentRecords as unknown as Array<ObjectType>,
-                    });
-                } else {
-                    return getResMessage("notFound", {
-                        message: "Document/record(s) not found.",
-                        value  : currentRecords as unknown as Array<ObjectType>,
-                    });
-                }
-            }
+            console.log("current-records: ", currentRecords);
+            console.log("doc-ids: ", this.docIds);
+            // if (by.toLowerCase() === "id") {
+            //     if (currentRecords.length > 0 && currentRecords.length === this.docIds.length) {
+            //         // update crud instance current-records value
+            //         this.currentRecs = currentRecords;
+            //         return getResMessage("success", {
+            //             message: `${currentRecords.length} document/record(s) retrieved successfully.`,
+            //             value  : currentRecords as unknown as Array<ObjectType>,
+            //         });
+            //     } else if (currentRecords.length > 0 && currentRecords.length < this.docIds.length) {
+            //         return getResMessage("partialRecords", {
+            //             message: `${currentRecords.length} out of ${this.docIds.length} document/record(s) found`,
+            //             value  : currentRecords as unknown as Array<ObjectType>,
+            //         });
+            //     } else {
+            //         return getResMessage("notFound", {
+            //             message: "Document/record(s) not found.",
+            //             value  : currentRecords as unknown as Array<ObjectType>,
+            //         });
+            //     }
+            // }
             // response for by queryParams or all-documents
             if (currentRecords.length > 0) {
                 // update crud instance current-records value

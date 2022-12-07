@@ -1,19 +1,20 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-07-24
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-07-24, @Updated: 2022-12-06(Deno)
  * @Company: Copyright 2020 Abi Akindele  | mConnect.biz
  * @License: All Rights Reserved | LICENSE.md
  * @Description: save-record(s) (create/insert and update record(s))
  */
 
 // Import required module/function(s)
-import {ObjectId, getResMessage, ResponseMessage, deleteHashCache, Document, } from "../../deps.ts";
+import { ObjectId, getResMessage, ResponseMessage, deleteHashCache, } from "../../deps.ts";
 import Crud from "./Crud.ts";
 import {
-    ActionParamTaskType, AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, ExistParamsType,
+    ActionParamTaskType, AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, CrudResultType,
+    ExistParamsType,
     LogDocumentsType, ObjectType,
     TaskTypes,
 } from "./types.ts";
-import {ModelOptionsType, RelationActionTypes, isEmptyObject} from "../orm/index.ts";
+import { ModelOptionsType, RelationActionTypes, isEmptyObject } from "../orm/index.ts";
 
 class SaveRecord<T extends BaseModelType> extends Crud<T> {
     protected modelOptions: ModelOptionsType;
@@ -70,6 +71,11 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             const {_id, ...otherParams} = this.queryParams;
             this.queryParams = otherParams;
         }
+
+        console.log("doc-ids: ", this.docIds);
+        console.log("query-params: ", this.queryParams);
+        console.log("create-update-records: ", this.createItems, this.updateItems);
+        console.log("exist-params: ", this.existParams);
 
         // Ensure the _id and fields ending in Id for existParams are of type mongoDb-new ObjectId, for create / update actions
         if (this.existParams && this.existParams.length > 0) {
@@ -188,50 +194,101 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
     // helper methods:
     computeItems(modelOptions: ModelOptionsType = this.modelOptions): ActionParamTaskType<T> {
         const updateItems: Array<T> = [],
-            docIds: Array<string> = [],
             createItems: Array<T> = [];
 
         // Ensure the _id for actionParams are of type mongoDb-new ObjectId, for update actions
-        if (this.actionParams && this.actionParams.length > 0) {
-            for (let item of this.actionParams) {
-                if (item["_id"] || item["_id"] !== "" || item["_id"] !== null) {
-                    // update/existing document
+        // cases - actionParams.length === 1 OR > 1
+        if (this.actionParams.length === 1) {
+            let item = this.actionParams[0];
+            if (this.docIds.length > 0 || !isEmptyObject(this.queryParams)) {
+                // update existing record(s), by docIds or queryParams
+                if (modelOptions.actorStamp) {
+                    item["updatedBy"] = this.userId;
+                }
+                if (modelOptions.timeStamp) {
+                    item["updatedAt"] = new Date();
+                }
+                if (modelOptions.activeStamp && item.isActive === undefined) {
+                    item["isActive"] = true;
+                }
+                updateItems.push(item);
+            } else if (item["_id"] && item["_id"] !== "") {
+                // update existing document/record, by recordId
+                this.docIds = [];
+                this.queryParams = {};
+                if (modelOptions.actorStamp) {
+                    item["updatedBy"] = this.userId;
+                }
+                if (modelOptions.timeStamp) {
+                    item["updatedAt"] = new Date();
+                }
+                if (modelOptions.activeStamp && item.isActive === undefined) {
+                    item["isActive"] = true;
+                }
+                this.docIds.push(item["_id"] as string);
+                updateItems.push(item);
+            } else {
+                // create new record
+                this.docIds = [];
+                this.queryParams = {};
+                // exclude any traces/presence of id, especially without concrete value ("", null, undefined)
+                const {_id, ...saveParams} = item;
+                item = saveParams as T;
+                if (modelOptions.actorStamp) {
+                    item["createdBy"] = this.userId;
+                }
+                if (modelOptions.timeStamp) {
+                    item["createdAt"] = new Date();
+                }
+                if (modelOptions.activeStamp && item.isActive === undefined) {
+                    item["isActive"] = true;
+                }
+                createItems.push(item);
+            }
+            this.createItems = createItems;
+            this.updateItems = updateItems;
+        } else if (this.actionParams.length > 1) {
+            // multiple/batch creation or update of document/records
+            this.docIds = [];
+            this.queryParams = {};
+            for (const item of this.actionParams) {
+                if (item["_id"] && item["_id"] !== "") {
+                    // update existing document/record
                     if (modelOptions.actorStamp) {
                         item["updatedBy"] = this.userId;
                     }
                     if (modelOptions.timeStamp) {
                         item["updatedAt"] = new Date();
                     }
-                    if (modelOptions.activeStamp && item["isActive"] === undefined) {
+                    if (modelOptions.activeStamp && item.isActive === undefined) {
                         item["isActive"] = true;
                     }
+                    this.docIds.push(item["_id"] as string);
                     updateItems.push(item);
-                    docIds.push(item["_id"] as string);
                 } else {
-                    // exclude any traces of _id, especially without concrete value ("", null, undefined), if present
+                    // create new document/record
+                    // exclude any traces/presence of id, especially without concrete value ("", null, undefined)
                     const {_id, ...saveParams} = item;
-                    item = saveParams as T;
-                    // create/new document
+                    const itemRec = saveParams as T;
                     if (modelOptions.actorStamp) {
-                        item["createdBy"] = this.userId;
+                        itemRec["createdBy"] = this.userId;
                     }
                     if (modelOptions.timeStamp) {
-                        item["createdAt"] = new Date();
+                        itemRec["createdAt"] = new Date();
                     }
-                    if (modelOptions.activeStamp && item["isActive"] === undefined) {
-                        item["isActive"] = true;
+                    if (modelOptions.activeStamp && itemRec.isActive === undefined) {
+                        itemRec["isActive"] = true;
                     }
-                    createItems.push(item);
+                    createItems.push(itemRec);
                 }
             }
             this.createItems = createItems;
             this.updateItems = updateItems;
-            this.docIds = docIds;
         }
         return {
             createItems,
             updateItems,
-            docIds,
+            docIds: this.docIds,
         };
     }
 
@@ -262,30 +319,30 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 throw new Error(`Unable to create new record(s), database error [${insertResult.insertedCount} of ${this.createItems.length} set to be created]`)
             }
 
-
             // perform cache and audi-log tasks
             if (insertResult.insertedCount > 0) {
                 // delete cache | this.cacheKey, this.coll, "key"
                 deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
                 // check the audit-log settings - to perform audit-log
-                let logRes = {};
+                let logRes: ResponseMessage = {code: "unknown", message: "", value: {}, resCode: 0, resMessage: ""};
                 if (this.logCreate || this.logCrud) {
                     const logDocuments: LogDocumentsType = {
                         collDocuments: this.createItems,
                     };
                     const logParams: AuditLogOptionsType = {
-                        collName: this.coll,
+                        collName     : this.coll,
                         collDocuments: logDocuments,
                     }
                     logRes = await this.transLog.createLog(this.userId, logParams);
                 }
+                const crudResult: CrudResultType<T> = {
+                    recordsCount: insertResult.insertedCount,
+                    recordIds   : insertResult.insertedIds as Array<string>,
+                    logRes      : logRes,
+                }
                 return getResMessage("success", {
                     message: `Record(s) created successfully: ${insertResult.insertedCount} of ${this.createItems.length} items created.`,
-                    value  : {
-                        docCount: insertResult.insertedCount,
-                        docIds  : insertResult.insertedIds,
-                        logRes,
-                    },
+                    value  : crudResult as unknown as ObjectType,
                 });
             }
             return getResMessage("insertError", {
@@ -328,14 +385,43 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                     _id,
                     ...otherParams
                 } = item;
-                    const appDbColl = this.appDb.collection(this.coll);
+                const appDbColl = this.appDb.collection(this.coll);
+                // current record prior to update
+                const currentRec = await appDbColl.findOne({_id: new ObjectId(_id)});
+                if (!currentRec || isEmptyObject(currentRec)) {
+                    throw new Error("Unable to retrieve current record for update.");
+                }
+                const updateResult = await appDbColl.updateOne({
+                    _id: new ObjectId(_id),
+                }, {
+                    $set: otherParams,
+                });
+                if (updateResult.modifiedCount !== updateResult.matchedCount) {
+                    throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
+                }
+                updateCount += updateResult.modifiedCount;
+                updateMatchedCount += updateResult.matchedCount;
+                // commit or abort trx
+                if (updateCount < 1 || updateCount != updateMatchedCount) {
+                    throw new Error("No records updated. Please retry.")
+                }
+            }
+            // update multiple records
+            if (this.updateItems.length > 1) {
+                const appDbColl = this.appDb.collection(this.coll);
+                for await (const item of this.updateItems) {
+                    // destruct _id /other attributes
+                    const {
+                        _id,
+                        ...otherParams
+                    } = item;
                     // current record prior to update
-                    const currentRec = await appDbColl.findOne({_id: new ObjectId(_id)});
+                    const currentRec = await appDbColl.findOne({_id: new Object(_id as string)});
                     if (!currentRec || isEmptyObject(currentRec)) {
                         throw new Error("Unable to retrieve current record for update.");
                     }
                     const updateResult = await appDbColl.updateOne({
-                        _id: new ObjectId(_id),
+                        _id: new ObjectId(_id as string),
                     }, {
                         $set: otherParams,
                     });
@@ -343,42 +429,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
                     }
                     updateCount += updateResult.modifiedCount;
-                    updateMatchedCount += updateResult.matchedCount;
-                    // commit or abort trx
-                    if (updateCount < 1 || updateCount != updateMatchedCount) {
-                        throw new Error("No records updated. Please retry.")
-                    }
-            }
-            // update multiple records
-            if (this.updateItems.length > 1) {
-
-                    const appDbColl = this.appDb.collection(this.coll);
-                    for await (const item of this.updateItems) {
-                        // destruct _id /other attributes
-                        const {
-                            _id,
-                            ...otherParams
-                        } = item;
-                        // current record prior to update
-                        const currentRec = await appDbColl.findOne({_id: new Object(_id as string)});
-                        if (!currentRec || isEmptyObject(currentRec)) {
-                            throw new Error("Unable to retrieve current record for update.");
-                        }
-                        const updateResult = await appDbColl.updateOne({
-                            _id: new ObjectId(_id as string),
-                        }, {
-                            $set: otherParams,
-                        });
-                        if (updateResult.modifiedCount !== updateResult.matchedCount) {
-                            throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
-                        }
-                        updateCount += updateResult.modifiedCount;
-                        updateMatchedCount += updateResult.matchedCount
-                    }
-                    // commit or abort trx
-                    if (updateCount < 1 || updateCount != updateMatchedCount) {
-                        throw new Error("No records updated. Please retry.")
-                    }
+                    updateMatchedCount += updateResult.matchedCount
+                }
+                // commit or abort trx
+                if (updateCount < 1 || updateCount != updateMatchedCount) {
+                    throw new Error("No records updated. Please retry.")
+                }
 
             }
             // perform cache and audi-log tasks
@@ -386,7 +442,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 // delete cache
                 await deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
                 // check the audit-log settings - to perform audit-log
-                let logRes = {};
+                let logRes: ResponseMessage = {code: "unknown", message: "", value: {}, resCode: 0, resMessage: ""};
                 if (this.logUpdate || this.logCrud) {
                     const logDocuments: LogDocumentsType = {
                         collDocuments: this.currentRecs,
@@ -395,18 +451,19 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         collDocuments: this.updateItems,
                     };
                     const logParams: AuditLogOptionsType = {
-                        collName: this.coll,
-                        collDocuments: logDocuments,
+                        collName        : this.coll,
+                        collDocuments   : logDocuments,
                         newCollDocuments: newLogDocuments,
                     }
                     logRes = await this.transLog.updateLog(this.userId, logParams);
                 }
+                const crudResult: CrudResultType<T> = {
+                    recordsCount: updateCount,
+                    logRes      : logRes,
+                }
                 return getResMessage("success", {
                     message: "Record(s) updated successfully.",
-                    value  : {
-                        docCount: updateCount,
-                        logRes,
-                    },
+                    value  : crudResult as ObjectType,
                 });
             }
             return getResMessage("updateError", {
@@ -444,31 +501,31 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             let updateCount = 0;
             let updateMatchedCount = 0;
 
-                const appDbColl = this.appDb.collection(this.coll);
-                // query current records prior to update
-                const currentRecs = await appDbColl.find(this.queryParams, ).toArray();
-                if (!currentRecs || currentRecs.length < 1) {
-                    throw new Error("Unable to retrieve current document(s) for update.");
-                }
-                updateResult = await appDbColl.updateMany(this.queryParams, {
-                    $set: otherParams
-                }, );
-                if (updateResult.modifiedCount !== updateResult.matchedCount) {
-                    throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
-                }
-                updateCount += updateResult.modifiedCount;
-                updateMatchedCount += updateResult.matchedCount
-                // commit or abort trx
-                if (updateCount < 1 || updateCount != updateMatchedCount) {
-                    throw new Error("No records updated. Please retry.")
-                }
+            const appDbColl = this.appDb.collection(this.coll);
+            // query current records prior to update
+            const currentRecs = await appDbColl.find(this.queryParams,).toArray();
+            if (!currentRecs || currentRecs.length < 1) {
+                throw new Error("Unable to retrieve current document(s) for update.");
+            }
+            updateResult = await appDbColl.updateMany(this.queryParams, {
+                $set: otherParams
+            },);
+            if (updateResult.modifiedCount !== updateResult.matchedCount) {
+                throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
+            }
+            updateCount += updateResult.modifiedCount;
+            updateMatchedCount += updateResult.matchedCount
+            // commit or abort trx
+            if (updateCount < 1 || updateCount != updateMatchedCount) {
+                throw new Error("No records updated. Please retry.")
+            }
 
             // perform cache and audi-log tasks
             if (updateCount > 0) {
                 // delete cache
                 await deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
                 // check the audit-log settings - to perform audit-log
-                let logRes = {};
+                let logRes: ResponseMessage = {code: "unknown", message: "", value: {}, resCode: 0, resMessage: ""};
                 if (this.logUpdate || this.logCrud) {
                     const logDocuments: LogDocumentsType = {
                         collDocuments: this.currentRecs,
@@ -477,8 +534,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         queryParam: updateParams,
                     }
                     const logParams: AuditLogOptionsType = {
-                        collName: this.coll,
-                        collDocuments: logDocuments,
+                        collName        : this.coll,
+                        collDocuments   : logDocuments,
                         newCollDocuments: newLogDocuments,
                     }
                     logRes = await this.transLog.updateLog(this.userId, logParams);
@@ -504,8 +561,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
 }
 
 // factory function/constructor
-function newSaveRecord<T extends Document>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+function newSaveRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
     return new SaveRecord(params, options);
 }
 
-export {SaveRecord, newSaveRecord};
+export { SaveRecord, newSaveRecord };

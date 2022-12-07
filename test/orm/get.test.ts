@@ -1,9 +1,9 @@
-import { assertEquals, assertNotEquals, mcTest, postTestResult } from "../test_deps.ts";
-import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
+import { assertEquals, assertNotEquals, mcTest, postTestResult } from "../../test_deps.ts";
+import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import {
     CrudParamsType, GetResultType,
     newDbMongo, newGetRecord, AuditType
-} from "../src/index.ts";
+} from "../../src/index.ts";
 import {
     crudParamOptions, getColl, testUserInfo, GetAuditById, GetAuditByIds, GetAuditByParams, auditColl
 } from "./testData.ts";

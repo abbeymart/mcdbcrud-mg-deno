@@ -1,6 +1,6 @@
-import { assertEquals, mcTest, postTestResult } from "../test_deps.ts";
-import { auditDb, dbOptions } from "./config/secure/config.ts";
-import { AuditLogOptionsType, AuditLogTypes, newAuditLog, newDbMongo } from "../src/index.ts";
+import { assertEquals, mcTest, postTestResult } from "../../test_deps.ts";
+import { auditDb, dbOptions } from "../config/secure/config.ts";
+import { AuditLogOptionsType, AuditLogTypes, newAuditLog, newDbMongo } from "../../src/index.ts";
 
 const collName = "services"
 const userId = "085f48c5-8763-4e22-a1c6-ac1a68ba07de"

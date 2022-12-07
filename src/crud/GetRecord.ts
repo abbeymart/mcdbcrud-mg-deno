@@ -90,7 +90,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
             try {
                 const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType<T>).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -123,7 +123,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                         recordsCount     : result.length,
                         totalRecordsCount: totalDocsCount,
                     }
-                    const resultValue: GetResultType = {
+                    const resultValue: GetResultType<T> = {
                         records: result as unknown as GetRecords,
                         stats,
                         logRes,
@@ -160,7 +160,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                         recordsCount     : result.length,
                         totalRecordsCount: totalDocsCount,
                     }
-                    const resultValue: GetResultType = {
+                    const resultValue: GetResultType<T> = {
                         records: result as unknown as GetRecords,
                         stats,
                         logRes,
@@ -195,7 +195,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                     recordsCount     : result.length,
                     totalRecordsCount: totalDocsCount,
                 }
-                const resultValue: GetResultType = {
+                const resultValue: GetResultType<T> = {
                     records: result as unknown as GetRecords,
                     stats,
                     logRes,
@@ -262,7 +262,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
             try {
                 const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType<T>).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -294,7 +294,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                     recordsCount     : result.length,
                     totalRecordsCount: totalDocsCount,
                 }
-                const resultValue: GetResultType = {
+                const resultValue: GetResultType<T> = {
                     records: result as unknown as GetRecords,
                     stats,
                     logRes,
@@ -369,7 +369,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
             try {
                 const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
                 if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType).records[0]);
+                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType<T>).records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -398,7 +398,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                     recordsCount     : result.length,
                     totalRecordsCount: totalDocsCount,
                 }
-                const resultValue: GetResultType = {
+                const resultValue: GetResultType<T> = {
                     records: result as unknown as GetRecords,
                     stats,
                     logRes,
@@ -472,7 +472,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                     recordsCount     : result.length,
                     totalRecordsCount: totalDocsCount,
                 }
-                const resultValue: GetResultType = {
+                const resultValue: GetResultType<T> = {
                     records: result as unknown as GetRecords,
                     stats,
                     logRes,

@@ -121,7 +121,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
 
         // could not remove document
         return getResMessage("removeError", {
-            message: "Unable to perform the requested action(s), due to incomplete/incorrect delete conditions. ",
+            message: "Unable to perform the requested action(s), due to incomplete/incorrect delete conditions. Delete task permitted by ID and queryParams only. ",
         });
     }
 

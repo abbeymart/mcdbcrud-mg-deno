@@ -48,7 +48,7 @@ class AuditLog {
         }
         if (errorMessage) {
             console.log("error-message: ", errorMessage);
-            return getResMessage("logError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -108,7 +108,7 @@ class AuditLog {
                 "Updated record(s) information is required.";
         }
         if (errorMessage) {
-            return getResMessage("insertError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -158,7 +158,7 @@ class AuditLog {
                 "Search keywords or Read record(s) information is required.";
         }
         if (errorMessage) {
-            return getResMessage("insertError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -210,7 +210,7 @@ class AuditLog {
                 "Deleted record(s) information is required.";
         }
         if (errorMessage) {
-            return getResMessage("insertError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -252,7 +252,7 @@ class AuditLog {
             errorMessage = errorMessage + " | Login information is required."
         }
         if (errorMessage) {
-            return getResMessage("insertError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -298,7 +298,7 @@ class AuditLog {
             errorMessage = errorMessage + " | Logout information is required."
         }
         if (errorMessage) {
-            return getResMessage("insertError", {
+            return getResMessage("paramsError", {
                 message: errorMessage,
             });
         }
@@ -363,7 +363,7 @@ class AuditLog {
                         "Created record(s) information is required.";
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -398,7 +398,7 @@ class AuditLog {
                         "Updated record(s) information is required.";
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -432,7 +432,7 @@ class AuditLog {
                         "Deleted record(s) information is required.";
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -461,7 +461,7 @@ class AuditLog {
                         "Search keywords or Read record(s) information is required.";
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -482,7 +482,7 @@ class AuditLog {
                     errorMessage = errorMessage + " | Login information is required."
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -508,7 +508,7 @@ class AuditLog {
                     errorMessage = errorMessage + " | Logout information is required."
                 }
                 if (errorMessage) {
-                    return getResMessage("insertError", {
+                    return getResMessage("paramsError", {
                         message: errorMessage,
                     });
                 }
@@ -520,7 +520,7 @@ class AuditLog {
 
                 break;
             default:
-                return getResMessage("insertError", {
+                return getResMessage("paramsError", {
                     message: "Unknown log type and/or incomplete log information",
                 });
         }

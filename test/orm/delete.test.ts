@@ -1,10 +1,10 @@
-import { assertEquals, mcTest, postTestResult, } from "../test_deps.ts";
-import { CrudParamsType, newDbMongo, newDeleteRecord, AuditType } from "../src/index.ts";
+import { assertEquals, mcTest, postTestResult, } from "../../test_deps.ts";
+import { CrudParamsType, newDbMongo, newDeleteRecord, AuditType } from "../../src/index.ts";
 import {
     auditColl, crudParamOptions, deleteAllColl, DeleteAuditById, DeleteAuditByIds,
     DeleteAuditByParams, deleteColl, getColl, testUserInfo
 } from "./testData.ts";
-import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
+import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 
 (async () => {
     // DB clients/handles
