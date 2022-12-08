@@ -8,7 +8,7 @@
  * Test case composition - see the test folder
  *
  * ```ts
- * import { newSaveRecord } from "https://deno.land/x/mcdbcrud-mg@v0.1.1/mod.ts";
+ * import { newSaveRecord } from "https://deno.land/x/mcdbcrud_mg@v0.1.1/mod.ts";
  *
  * ```
  *

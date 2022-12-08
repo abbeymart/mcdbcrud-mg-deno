@@ -9,8 +9,6 @@ import { collections } from "./collections.ts";
 
 // Models
 
-// TODO: include groups and categories collections, with relations-specs
-
 export const groupModel: ModelDescType = {
     collName   : collections.GROUPS,
     docDesc    : {
@@ -146,7 +144,7 @@ export const updateColl = "audits_update"
 export const groupTable = collections.GROUPS
 export const categoryTable = collections.CATEGORIES
 
-export const UserId = "c85509ac-7373-464d-b667-425bb59b5738" // TODO: review/update
+export const UserId = "c85509ac-7373-464d-b667-425bb59b5738"
 
 export const testUserInfo: UserInfoType = {
     userId   : "c85509ac-7373-464d-b667-425bb59b5738",
@@ -178,8 +176,6 @@ export const crudParamOptions: CrudOptionsType = {
     msgFrom      : "support@mconnect.biz",
     cacheResult  : false,
 }
-
-// TODO: create/update, get & delete records for groups & categories tables
 
 export const LogRecords: ObjectType = {
     "name"    : "Abi",

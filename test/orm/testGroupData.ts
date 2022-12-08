@@ -141,53 +141,80 @@ const categoryOptions: ModelCrudOptionsType = {
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
 export const groupTable = collections.GROUPS
+export const groupTableUpdate = "groups_update"
+export const groupTableDelete = "groups_delete"
 export const categoryTable = collections.CATEGORIES
+export const categoryTableUpdate = "categories_update"
+export const categoryTableDelete = "categories_delete"
 
-export const UserId = "c85509ac-7373-464d-b667-425bb59b5738" // TODO: review/update
+export const UserId = "c85509ac-7373-464d-b667-425bb59b5738"
 
-// TODO: create/update, get & delete records for groups & categories tables
-
-export const GroupRecords: ObjectType = {
-    "name"    : "Abi",
-    "desc"    : "Testing only",
-    "url"     : "localhost:9000",
-    "priority": 100,
-    "cost"    : 1000.00,
-}
-
-export const GroupRecords2: ObjectType = {
-    "name"    : "Ola",
-    "desc"    : "Testing only - 2",
-    "url"     : "localhost:9000",
-    "priority": 1,
-    "cost"    : 10000.00,
-}
-
-export const GroupRecords3: ObjectType = {
-    "name"    : "Ola",
-    "desc"    : "Testing only - 2 - updated",
-    "url"     : "localhost:9000",
-    "priority": 1,
-    "cost"    : 20000.00,
-}
+// TODO: groups collection test-data
 
 // create record(s)
 
 export const GroupCreateRec1: ObjectType = {
-    "collName"  : "audits",
-    "logAt"     : new Date(),
-    "logBy"     : UserId,
-    "logRecords": GroupRecords,
-    "logType"   : TaskTypes.CREATE,
+    "name"  : "audits",
 }
 
 export const GroupCreateRec2: ObjectType = {
-    "collName"  : "audits",
-    "logAt"     : new Date(),
-    "logBy"     : UserId,
-    "logRecords": GroupRecords2,
-    "logType"   : TaskTypes.CREATE,
+    "name"  : "audits",
 }
+
+
+export const GroupCreateRec3: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec4: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec5: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec6: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec7: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec8: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec9: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateRec10: GroupType = {
+    _id : "638fd835c77947991e7f7e15",
+    name: "",
+}
+
+export const GroupCreateActionParams: Array<AuditType> = [
+    GroupCreateRec1,
+    GroupCreateRec2,
+    GroupCreateRec3,
+    GroupCreateRec4,
+    GroupCreateRec5,
+    GroupCreateRec6,
+    GroupCreateRec7,
+    GroupCreateRec8,
+    GroupCreateRec9,
+    GroupCreateRec10,
+]
+
 
 export const GroupUpdateRec1: GroupType = {
     _id : "638fd835c77947991e7f7e14",
@@ -198,11 +225,6 @@ export const GroupUpdateRec2: GroupType = {
     _id : "638fd835c77947991e7f7e15",
     name: "",
 }
-
-export const GroupCreateActionParams: Array<AuditType> = [
-    GroupCreateRec1,
-    GroupCreateRec2,
-]
 
 export const GroupUpdateActionParams: Array<AuditType> = [
     GroupUpdateRec1,
@@ -221,7 +243,16 @@ export const AuditUpdateRecordByParam: ActionParamType = {
     "name": "Updated Group Name",
 }
 
-// GetIds: for get-records by ids & params | TODO: update ids after create
+export const UpdateGroupById = "638fd835c77947991e7f7e11"
+export const UpdateGroupByIds: Array<string> = [
+    "638fd835c77947991e7f7e11",
+    "638fd835c77947991e7f7e12",
+    "638fd835c77947991e7f7e13",
+]
+
+export const UpdateGroupByParams: QueryParamsType = {
+    "logType": "read",
+}
 
 export const GetGroupById = "638fd565c97d023503c6a0d8"
 export const GetGroupByIds = ["638fd565c97d023503c6a0d8",
@@ -242,13 +273,7 @@ export const DeleteGroupByParams: QueryParamsType = {
     "logType": "read",
 }
 
-export const UpdateGroupById = "638fd835c77947991e7f7e11"
-export const UpdateGroupByIds: Array<string> = [
-    "638fd835c77947991e7f7e11",
-    "638fd835c77947991e7f7e12",
-    "638fd835c77947991e7f7e13",
-]
 
-export const UpdateGroupByParams: QueryParamsType = {
-    "logType": "read",
-}
+// TODO: categories collection test-data
+
+
