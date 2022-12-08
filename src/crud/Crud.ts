@@ -287,7 +287,6 @@ export class Crud<T extends BaseModelType> {
             const appDbColl = this.appDb.collection<T>(this.coll);
             switch (by.toLowerCase()) {
                 case "id": {
-                    console.log("get-by-ids: ", this.docIds)
                     const docIds = this.docIds.map(id => new ObjectId(id));
                     const qParams: QueryParamsType = {_id: {$in: docIds}};
                     currentRecords = await appDbColl.find(qParams as Filter<ValueType>)
@@ -297,7 +296,6 @@ export class Crud<T extends BaseModelType> {
                     break;
                 }
                 case "queryparams":
-                    console.log("get-by-qParams: ", this.queryParams);
                     currentRecords = await appDbColl.find(this.queryParams as Filter<ValueType>)
                         .skip(this.skip)
                         .limit(this.limit)
@@ -310,8 +308,6 @@ export class Crud<T extends BaseModelType> {
                         .toArray();
                     break;
             }
-            console.log("current-records: ", currentRecords);
-            console.log("doc-ids: ", this.docIds);
             // if (by.toLowerCase() === "id") {
             //     if (currentRecords.length > 0 && currentRecords.length === this.docIds.length) {
             //         // update crud instance current-records value
@@ -513,7 +509,7 @@ export class Crud<T extends BaseModelType> {
     }
 
     // checkAccess validate if current CRUD task is permitted based on defined/assigned roles
-    async checkTaskAccess(_userInfo: UserInfoType, docIds: Array<string> = [],): Promise<ResponseMessage> {
+    async checkTaskAccess(): Promise<ResponseMessage> {
         try {
             // validate models
             const validAccessDb = await this.checkDb(this.accessDb);
@@ -541,7 +537,7 @@ export class Crud<T extends BaseModelType> {
 
             // if permitted, include collId and docIds in serviceIds
             let collId = "";
-            const serviceIds = docIds;
+            const serviceIds = this.docIds;
             if (serviceRes && (serviceRes.serviceCategory.toLowerCase() === "collection" || serviceRes.serviceCategory.toLowerCase() === "table")) {
                 collId = serviceRes._id.toString();
                 serviceIds.push(collId);
@@ -565,12 +561,12 @@ export class Crud<T extends BaseModelType> {
                 return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
             }
             const recLen = permittedRes.roleServices?.length || 0;
-            if (permittedRes.isActive && recLen > 0 && recLen >= docIds.length) {
+            if (permittedRes.isActive && recLen > 0 && recLen >= this.docIds.length) {
                 return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
             }
             return getResMessage("unAuthorized",
                 {
-                    message: `Access permitted for ${recLen} of ${docIds.length} service-items/records`,
+                    message: `Access permitted for ${recLen} of ${this.docIds.length} service-items/records`,
                     value  : permittedRes as unknown as Record<string, ValueType>,
                 }
             );
@@ -605,7 +601,7 @@ export class Crud<T extends BaseModelType> {
             docIds = this.docIds;
 
             // check role-based access
-            const accessRes = await this.checkTaskAccess(this.userInfo, docIds);
+            const accessRes = await this.checkTaskAccess();
             if (accessRes.code !== "success") {
                 return accessRes;
             }

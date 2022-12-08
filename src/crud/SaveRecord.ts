@@ -53,29 +53,39 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
 
         // determine update / create (new) items from actionParams
         await this.computeItems();
+        // determine update / create (new) items from actionParams
+        const {docIds} = await this.computeItems();
         // validate createItems and updateItems
         if (this.createItems.length === this.updateItems.length) {
-            return getResMessage("saveError", {
-                message: "Only Create or Update tasks, not both, may be performed exclusively.",
-                value  : {},
-            });
-        }
-        if (this.createItems.length < 1 && this.updateItems.length < 1) {
             return getResMessage("paramsError", {
-                message: "Inputs errors (actionParams) to complete create or update tasks.",
+                message: "You may only create or update record(s), not both at the same time.",
                 value  : {},
             });
         }
+        if (
+            this.createItems.length < 1 && this.updateItems.length < 1 &&
+            this.actionParams.length < 1
+        ) {
+            return getResMessage("paramsError", {
+                message: "Valid action-params required for create or update task.",
+                value  : {},
+            });
+        }
+        // check task-type:
+        this.taskType = this.checkTaskType();
+        if (this.taskType === TaskTypes.UNKNOWN) {
+            return getResMessage("paramsError", {
+                message:
+                    `Task-type[${TaskTypes.UNKNOWN}]: valid actionParams required to complete create or update tasks.`,
+                value  : {},
+            });
+        }
+
         // for queryParams, exclude _id, if present
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             const {_id, ...otherParams} = this.queryParams;
             this.queryParams = otherParams;
         }
-
-        console.log("doc-ids: ", this.docIds);
-        console.log("query-params: ", this.queryParams);
-        console.log("create-update-records: ", this.createItems, this.updateItems);
-        console.log("exist-params: ", this.existParams);
 
         // Ensure the _id and fields ending in Id for existParams are of type mongoDb-new ObjectId, for create / update actions
         if (this.existParams && this.existParams.length > 0) {
@@ -101,19 +111,19 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         }
 
-        // update records/documents by queryParams: permitted for admin user only
+        // update documents/documents by queryParams: permitted for admin user only
         if (this.isAdmin && this.docIds.length < 1 && this.queryParams && !isEmptyObject(this.queryParams) &&
             this.actionParams.length === 1) {
             this.taskType = TaskTypes.UPDATE
             try {
-                // check duplicate records, i.e. if similar records exist
+                // check duplicate documents, i.e. if similar documents exist
                 if (this.existParams.length > 0) {
                     const recExist = await this.checkRecExist();
                     if (recExist.code !== "success") {
                         return recExist;
                     }
                 }
-                // get current records update and audit log
+                // get current documents update and audit log
                 this.updateCascade = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE).length > 0;
                 this.updateSetNull = this.childRelations.map(item => item.onUpdate === RelationActionTypes.SET_NULL).length > 0;
                 this.updateSetDefault = this.childRelations.map(item => item.onUpdate === RelationActionTypes.SET_DEFAULT).length > 0;
@@ -123,7 +133,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         return currentRec;
                     }
                 }
-                // update records
+                // update documents
                 return await this.updateRecordByParams();
             } catch (e) {
                 console.error(e);
@@ -133,43 +143,37 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             }
         }
 
-        // create records/documents
-        if (this.createItems.length > 0) {
-            this.taskType = TaskTypes.CREATE
+        // create records/document(s)
+        if (this.taskType === TaskTypes.CREATE && this.createItems.length > 0) {
             try {
-                // check duplicate records, i.e. if similar records exist
-                if (this.existParams.length > 0) {
-                    const recExist: ResponseMessage = await this.checkRecExist();
-                    if (recExist.code !== "success") {
-                        return recExist;
+                // check task-permission
+                if (this.checkAccess) {
+                    const accessRes = await this.checkTaskAccess();
+                    if (accessRes.code != "success") {
+                        return accessRes;
                     }
                 }
                 // create records
                 return await this.createRecord();
-            } catch (e) {
-                console.error(e);
+            } catch (_e) {
                 return getResMessage("insertError", {
                     message: "Error-inserting/creating new record.",
                 });
             }
         }
 
-        // update existing records/documents
-        if (this.updateItems.length > 0) {
-            this.taskType = TaskTypes.UPDATE
+        // update existing records/document(s), by recordIds
+        if (this.taskType === TaskTypes.UPDATE && this.actionParams.length === 1 && this.docIds.length > 0) {
             try {
-                // check duplicate records, i.e. if similar records exist
-                if (this.existParams.length > 0) {
-                    const recExist = await this.checkRecExist();
-                    if (recExist.code !== "success") {
-                        return recExist;
+                // check task-permission
+                if (this.checkAccess) {
+                    const accessRes = await this.taskPermissionById(this.taskType);
+                    if (accessRes.code != "success") {
+                        return accessRes;
                     }
                 }
-                // get current records for update-cascade and audit log
-                this.updateCascade = this.childRelations.map(item => item.onUpdate === RelationActionTypes.CASCADE).length > 0;
-                this.updateSetNull = this.childRelations.map(item => item.onUpdate === RelationActionTypes.SET_NULL).length > 0;
-                this.updateSetDefault = this.childRelations.map(item => item.onUpdate === RelationActionTypes.SET_DEFAULT).length > 0;
-                if (this.logUpdate || this.logCrud || this.updateCascade || this.updateSetNull || this.updateSetDefault) {
+                // check currentRecords
+                if (this.logUpdate || this.logCrud) {
                     const currentRec = await this.getCurrentRecords("id");
                     if (currentRec.code !== "success") {
                         return currentRec;
@@ -178,11 +182,62 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 // update records
                 return await this.updateRecordById();
             } catch (e) {
-                console.error(e);
+                // console.error(e);
                 return getResMessage("updateError", {
                     message: `Error updating record(s): ${e.message ? e.message : ""}`,
                 });
             }
+        }
+
+        // update records/document(s) by queryParams: recommended for admin user only
+        if (this.taskType === TaskTypes.UPDATE && this.actionParams.length === 1 && !isEmptyObject(this.queryParams)
+        ) {
+            try {
+                // check task-permission
+                if (this.checkAccess) {
+                    const accessRes = await this.taskPermissionByParams(this.taskType);
+                    if (accessRes.code != "success") {
+                        return accessRes;
+                    }
+                }
+                // check currentRecords
+                if (this.logUpdate || this.logCrud) {
+                    const currentRec = await this.getCurrentRecords("queryparams");
+                    if (currentRec.code !== "success") {
+                        return currentRec;
+                    }
+                }
+                // update records
+                return await this.updateRecordByParams();
+            } catch (e) {
+                // console.error(e);
+                return getResMessage("updateError", {
+                    message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                });
+            }
+        }
+
+        // update records/document(s), batch/multiple updates
+        if (this.taskType === TaskTypes.UPDATE && this.updateItems.length > 0) {
+            // update the instance-docIds
+            if (docIds.length > 0) {
+                this.docIds = docIds;
+            }
+            // check task-permission
+            if (this.checkAccess) {
+                const accessRes = await this.taskPermissionById(this.taskType);
+                if (accessRes.code != "success") {
+                    return accessRes;
+                }
+            }
+            // check currentRecords
+            if (this.logUpdate || this.logCrud) {
+                const currentRec = await this.getCurrentRecords("id");
+                if (currentRec.code !== "success") {
+                    return currentRec;
+                }
+            }
+            return await this.updateRecord();
         }
 
         // return save-error message
@@ -192,6 +247,27 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
     }
 
     // helper methods:
+    checkTaskType(): string {
+        let taskType = TaskTypes.UNKNOWN;
+        if (this.createItems.length > 0) {
+            taskType = TaskTypes.CREATE;
+        } else if (this.updateItems.length > 0) {
+            taskType = TaskTypes.UPDATE;
+        } else if (this.actionParams.length === 1) {
+            const actParam = this.actionParams[0] as unknown as ObjectType;
+            if (!actParam["id"] || actParam["id"] === "") {
+                if (this.docIds?.length > 0 || !isEmptyObject(this.queryParams)) {
+                    taskType = TaskTypes.UPDATE;
+                } else {
+                    taskType = TaskTypes.CREATE;
+                }
+            } else {
+                taskType = TaskTypes.UPDATE;
+            }
+        }
+        return taskType;
+    }
+
     computeItems(modelOptions: ModelOptionsType = this.modelOptions): ActionParamTaskType<T> {
         const updateItems: Array<T> = [],
             createItems: Array<T> = [];
@@ -294,8 +370,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
 
     async createRecord(): Promise<ResponseMessage> {
         if (this.createItems.length < 1) {
-            return getResMessage("insertError", {
-                message: "Unable to create new record(s), due to incomplete/incorrect input-parameters. ",
+            return getResMessage("paramsError", {
+                message: "Action/Create-document parameter-object are required.",
             });
         }
         if (this.isRecExist) {
@@ -311,14 +387,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         }
         // insert/create record(s) and log in audit-collection
         try {
-            // insert/create multiple records and audit-log
+            // insert/create multiple documents and audit-log
             const appDbColl = this.appDb.collection<T>(this.coll);
             const insertResult = await appDbColl.insertMany(this.createItems);
-            // commit or abort trx
-            if (insertResult.insertedCount < 1 || insertResult.insertedIds.length < 1 || insertResult.insertedCount < this.createItems.length) {
-                throw new Error(`Unable to create new record(s), database error [${insertResult.insertedCount} of ${this.createItems.length} set to be created]`)
-            }
-
             // perform cache and audi-log tasks
             if (insertResult.insertedCount > 0) {
                 // delete cache | this.cacheKey, this.coll, "key"
@@ -337,7 +408,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 }
                 const crudResult: CrudResultType<T> = {
                     recordsCount: insertResult.insertedCount,
-                    recordIds   : insertResult.insertedIds as Array<string>,
+                    recordIds   : insertResult.insertedIds.map(it => it?.toString()) as Array<string>,
                     logRes      : logRes,
                 }
                 return getResMessage("success", {
@@ -355,7 +426,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         }
     }
 
-    async updateRecordById(): Promise<ResponseMessage> {
+    async updateRecord(): Promise<ResponseMessage> {
         // control access to security-sensitive collections - optional
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {
@@ -368,76 +439,33 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         }
         if (this.updateItems.length < 1) {
-            return getResMessage("insertError", {
-                message: "Unable to update record(s), due to incomplete/incorrect input-parameters. ",
+            return getResMessage("paramsError", {
+                message: "Action/Update-document parameter-object are required.",
             });
         }
         // updated record(s)
         try {
-            // check/validate update/upsert command for multiple records
+            // check current documents prior to update
+            const currentRec = await this.getCurrentRecords("id");
+            if (currentRec.code !== "success") {
+                return currentRec;
+            }
+            // check/validate update/upsert command for multiple documents
             let updateCount = 0;
             let updateMatchedCount = 0;
-            // update one record
-            if (this.updateItems.length === 1) {
+            // update multiple documents
+            const appDbColl = this.appDb.collection(this.coll);
+            for await (const item of this.updateItems) {
                 // destruct _id /other attributes
-                const item = this.updateItems[0];
-                const {
-                    _id,
-                    ...otherParams
-                } = item;
-                const appDbColl = this.appDb.collection(this.coll);
-                // current record prior to update
-                const currentRec = await appDbColl.findOne({_id: new ObjectId(_id)});
-                if (!currentRec || isEmptyObject(currentRec)) {
-                    throw new Error("Unable to retrieve current record for update.");
-                }
-                const updateResult = await appDbColl.updateOne({
-                    _id: new ObjectId(_id),
-                }, {
-                    $set: otherParams,
-                });
-                if (updateResult.modifiedCount !== updateResult.matchedCount) {
-                    throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
-                }
+                const {_id, ...otherParams} = item;
+                const updateResult = await appDbColl.updateOne(
+                    {_id: new ObjectId(_id as string),},
+                    {$set: otherParams,},
+                );
                 updateCount += updateResult.modifiedCount;
-                updateMatchedCount += updateResult.matchedCount;
-                // commit or abort trx
-                if (updateCount < 1 || updateCount != updateMatchedCount) {
-                    throw new Error("No records updated. Please retry.")
-                }
+                updateMatchedCount += updateResult.matchedCount
             }
-            // update multiple records
-            if (this.updateItems.length > 1) {
-                const appDbColl = this.appDb.collection(this.coll);
-                for await (const item of this.updateItems) {
-                    // destruct _id /other attributes
-                    const {
-                        _id,
-                        ...otherParams
-                    } = item;
-                    // current record prior to update
-                    const currentRec = await appDbColl.findOne({_id: new Object(_id as string)});
-                    if (!currentRec || isEmptyObject(currentRec)) {
-                        throw new Error("Unable to retrieve current record for update.");
-                    }
-                    const updateResult = await appDbColl.updateOne({
-                        _id: new ObjectId(_id as string),
-                    }, {
-                        $set: otherParams,
-                    });
-                    if (updateResult.modifiedCount !== updateResult.matchedCount) {
-                        throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
-                    }
-                    updateCount += updateResult.modifiedCount;
-                    updateMatchedCount += updateResult.matchedCount
-                }
-                // commit or abort trx
-                if (updateCount < 1 || updateCount != updateMatchedCount) {
-                    throw new Error("No records updated. Please retry.")
-                }
-
-            }
-            // perform cache and audi-log tasks
+            // perform cache and audit-log tasks
             if (updateCount > 0) {
                 // delete cache
                 await deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
@@ -462,12 +490,93 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                     logRes      : logRes,
                 }
                 return getResMessage("success", {
-                    message: "Record(s) updated successfully.",
+                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
                     value  : crudResult as ObjectType,
                 });
             }
             return getResMessage("updateError", {
-                message: "No records updated. Please retry.",
+                message: "No documents updated. Please retry.",
+            });
+        } catch (e) {
+            return getResMessage("updateError", {
+                message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                value  : e,
+            });
+        }
+    }
+
+    async updateRecordById(): Promise<ResponseMessage> {
+        // control access to security-sensitive collections - optional
+        if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
+            return getResMessage("unAuthorized", {
+                message: "Access-security-sensitive collections update are not allowed - via crud package."
+            })
+        }
+        if (this.isRecExist) {
+            return getResMessage("recExist", {
+                message: this.recExistMessage,
+            });
+        }
+        if (this.docIds.length < 1) {
+            return getResMessage("paramsError", {
+                message: "document-IDs required to update documents.",
+            });
+        }
+        if (this.updateItems.length < 1 && this.actionParams.length < 1) {
+            return getResMessage("paramsError", {
+                message: "Action/Update-document parameter-object are required.",
+            });
+        }
+        // updated record(s)
+        try {
+            // check current documents prior to update
+            const currentRec = await this.getCurrentRecords("id");
+            if (currentRec.code !== "success") {
+                return currentRec;
+            }
+            // destruct _id /other attributes
+            const item = this.actionParams[0];
+            const {_id, ...otherParams} = item;
+            // update multiple documents
+            const appDbColl = this.appDb.collection(this.coll);
+            const docIds = this.docIds.map(it => new ObjectId(it));
+            const updateResult = await appDbColl.updateMany(
+                {_id: {$in: docIds,}},
+                {$set: otherParams,},
+            );
+            const updateCount = updateResult.modifiedCount;
+            const updateMatchedCount = updateResult.matchedCount
+            // perform cache and audi-log tasks
+            if (updateCount > 0) {
+                // delete cache
+                await deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
+                // check the audit-log settings - to perform audit-log
+                let logRes: ResponseMessage = {code: "unknown", message: "", value: {}, resCode: 0, resMessage: ""};
+                if (this.logUpdate || this.logCrud) {
+                    const logDocuments: LogDocumentsType = {
+                        collDocuments: this.currentRecs,
+                    };
+                    const newLogDocuments: LogDocumentsType = {
+                        collDocuments: this.updateItems,
+                    };
+                    const logParams: AuditLogOptionsType = {
+                        collName        : this.coll,
+                        collDocuments   : logDocuments,
+                        newCollDocuments: newLogDocuments,
+                    }
+                    logRes = await this.transLog.updateLog(this.userId, logParams);
+                }
+                const crudResult: CrudResultType<T> = {
+                    recordsCount: updateCount,
+                    logRes      : logRes,
+                };
+                return getResMessage("success", {
+                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
+                    value  : crudResult as ObjectType,
+                });
+            }
+            return getResMessage("updateError", {
+                message: "No documents updated. Please retry.",
             });
         } catch (e) {
             return getResMessage("updateError", {
@@ -484,42 +593,36 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 message: "Access-security-sensitive collections update are not allowed - via crud package."
             })
         }
+        if (isEmptyObject(this.queryParams)) {
+            return getResMessage("paramsError", {
+                message: "queryParams is required to update documents.",
+            });
+        }
         if (this.isRecExist) {
             return getResMessage("recExist", {
                 message: this.recExistMessage,
             });
         }
-        let updateResult;
         try {
+            // check current documents prior to update
+            const currentRec = await this.getCurrentRecords("queryParams");
+            if (currentRec.code !== "success") {
+                return currentRec;
+            }
             // destruct _id /other attributes
             const item = this.actionParams[0];
             const {_id, ...otherParams} = item;
             // include item stamps: userId and date
             otherParams.updatedBy = this.userId;
             otherParams.updatedAt = new Date();
-            const updateParams = otherParams;
-            let updateCount = 0;
-            let updateMatchedCount = 0;
-
+            // const updateParams = otherParams;
             const appDbColl = this.appDb.collection(this.coll);
-            // query current records prior to update
-            const currentRecs = await appDbColl.find(this.queryParams,).toArray();
-            if (!currentRecs || currentRecs.length < 1) {
-                throw new Error("Unable to retrieve current document(s) for update.");
-            }
-            updateResult = await appDbColl.updateMany(this.queryParams, {
-                $set: otherParams
-            },);
-            if (updateResult.modifiedCount !== updateResult.matchedCount) {
-                throw new Error(`Error updating document(s) [${updateResult.modifiedCount} of ${updateResult.matchedCount} set to be updated]`)
-            }
-            updateCount += updateResult.modifiedCount;
-            updateMatchedCount += updateResult.matchedCount
-            // commit or abort trx
-            if (updateCount < 1 || updateCount != updateMatchedCount) {
-                throw new Error("No records updated. Please retry.")
-            }
-
+            const updateResult = await appDbColl.updateMany(
+                this.queryParams,
+                {$set: otherParams},
+            );
+            const updateCount = updateResult.modifiedCount;
+            const updateMatchedCount = updateResult.matchedCount
             // perform cache and audi-log tasks
             if (updateCount > 0) {
                 // delete cache
@@ -531,7 +634,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         collDocuments: this.currentRecs,
                     }
                     const newLogDocuments: LogDocumentsType = {
-                        queryParam: updateParams,
+                        queryParam: otherParams,
                     }
                     const logParams: AuditLogOptionsType = {
                         collName        : this.coll,
@@ -540,16 +643,17 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                     }
                     logRes = await this.transLog.updateLog(this.userId, logParams);
                 }
+                const crudResult: CrudResultType<T> = {
+                    recordsCount: updateCount,
+                    logRes      : logRes,
+                };
                 return getResMessage("success", {
-                    message: "Requested action(s) performed successfully.",
-                    value  : {
-                        docCount: updateCount,
-                        logRes,
-                    },
+                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
+                    value  : crudResult as unknown as ObjectType,
                 });
             }
             return getResMessage("updateError", {
-                message: "No records updated. Please retry.",
+                message: "No documents updated. Please retry.",
             });
         } catch (e) {
             return getResMessage("updateError", {

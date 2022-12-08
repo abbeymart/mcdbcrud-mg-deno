@@ -64,12 +64,10 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const recLen = crudParams.actionParams?.length || 0
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
-            const idLen = resValue.recordIds?.length || 0
             const recCount = resValue.recordsCount || 0
             assertEquals(res.code, "success", `update-task should return code: success`);
-            assertEquals(idLen, recLen, `response-value-records-length should be: ${recLen}`);
             assertEquals(recCount, recLen, `response-value-recordsCount should be: ${recLen}`);
         }
     });
@@ -84,12 +82,10 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const recLen = crudParams.docIds.length;
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
-            const idLen = resValue.recordIds?.length || 0;
             const recCount = resValue.recordsCount || 0;
             assertEquals(res.code, "success", `update-by-id-task should return code: success`);
-            assertEquals(idLen, recLen, `response-value-records-length should be: ${recLen}`);
             assertEquals(recCount, recLen, `response-value-recordsCount should be: ${recLen}`);
         }
     });
@@ -104,12 +100,10 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const recLen = crudParams.docIds.length
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>
-            const idLen = resValue.recordIds?.length || 0
             const recCount = resValue.recordsCount || 0
             assertEquals(res.code, "success", `update-by-id-task should return code: success`);
-            assertEquals(idLen, recLen, `response-value-records-length should be: ${recLen}`);
             assertEquals(recCount, recLen, `response-value-recordsCount should be: ${recLen}`);
         }
     });
@@ -124,7 +118,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const recLen = 0
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();
-            console.log("create-result: ", res);
+            console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const recCount = resValue.recordsCount || 0
             assertEquals(res.code, "success", `create-task should return code: success`);

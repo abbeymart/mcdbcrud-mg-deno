@@ -96,7 +96,7 @@ export interface GetResultType<T extends BaseModelType> {
 
 export interface CrudResultType<T extends BaseModelType> {
     queryParam?: QueryParamsType;
-    docIds?: Array<string>;
+    recordIds?: Array<string>;
     recordsCount?: number;
     records?: Array<T>;
     taskType?: string;

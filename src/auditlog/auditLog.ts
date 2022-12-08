@@ -66,7 +66,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError", {
@@ -127,7 +127,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
@@ -176,7 +176,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
@@ -228,7 +228,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
@@ -270,7 +270,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
@@ -316,7 +316,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
@@ -535,7 +535,7 @@ class AuditLog {
 
             if (result) {
                 return getResMessage("success", {
-                    value: result as string,
+                    value: result.toString(),
                 });
             } else {
                 return getResMessage("insertError");
