@@ -34,7 +34,6 @@ import {
     newGetRecordStream,
     newSaveRecord, ObjectType,
     TaskTypes,
-    UserInfoType,
 } from "../crud/index.ts";
 import { isEmptyObject } from "./helpers.ts";
 
@@ -612,7 +611,7 @@ export class Model<T extends BaseModelType> {
             // get docValue transformed types (as DataTypes) | one iteration only for actionParams[0]
             const docValueTypes = this.computeDocValueType(params.actionParams[0]);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
-            const actParams: Array<T> = []
+            const actParams: Array<T> = [];
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
                 const modelDocValue = await this.setDefaultValues(docValue);
@@ -622,80 +621,17 @@ export class Model<T extends BaseModelType> {
                     return getParamsMessage(validateRes.errors);
                 }
                 // update actParams, with the model-transformed document-value
-                actParams.push(modelDocValue)
+                actParams.push(modelDocValue);
             }
             // update CRUD params and options
-            params.actionParams = actParams
+            params.actionParams = actParams;
             // update unique-fields query-parameters
             params.existParams = this.computeExistParams(params.actionParams);
             options = {
-                ...options, ...this.modelOptionValues,
+                ...options, ...{modelOptions: this.modelOptionValues},
             };
             // instantiate CRUD-save class & perform save-crud task (create or update)
             const crud = newSaveRecord(params, options);
-            // determine / set taskType (CREATE/INSERT or UPDATE) | permission (if checkAccess: true)
-            // determine taskType - create or update (not both):
-            const docIds: Array<string> = [];
-            for (const rec of params.actionParams) {
-                if (rec["_id"]) {
-                    docIds.push(rec["_id"] as string);
-                }
-            }
-            if (docIds.length === params.actionParams.length) {
-                params.taskType = TaskTypes.UPDATE;
-                params.docIds = docIds;
-                this.taskType = params.taskType;
-            } else if (params.actionParams.length === 1 &&
-                ((params.docIds && params.docIds.length > 0) ||
-                    (params.queryParams && !isEmptyObject(params.queryParams)))) {
-                params.taskType = TaskTypes.UPDATE;
-                this.taskType = params.taskType;
-            } else if (docIds.length === 0 && isEmptyObject(params.queryParams as MessageObject) &&
-                params.actionParams.length > 0) {
-                params.taskType = TaskTypes.CREATE;
-                this.taskType = params.taskType;
-            } else {
-                return getResMessage('saveError', {
-                    message: "Only Create or Update tasks, not both, may be performed exclusively",
-                });
-            }
-
-            // check access permission
-            let loginStatusRes = getResMessage("unknown");
-            if (this.checkAccess) {
-                loginStatusRes = await crud.checkLoginStatus();
-                if (loginStatusRes.code !== "success") {
-                    return loginStatusRes;
-                }
-            }
-            let accessRes: ResponseMessage;
-            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (params.taskType === TaskTypes.UPDATE) {
-                    if (params.docIds!.length > 0) {
-                        accessRes = await crud.taskPermissionById(params.taskType);
-                        if (accessRes.code !== "success") {
-                            return accessRes;
-                        }
-                    } else if (params.queryParams && !isEmptyObject(params.queryParams)) {
-                        accessRes = await crud.taskPermissionByParams(params.taskType);
-                        if (accessRes.code !== "success") {
-                            return accessRes;
-                        }
-                    } else {
-                        return getResMessage("updateError", {
-                            message: "Restricted records may only be updated by ids or queryParams (owner), or by admin-role only",
-                        });
-                    }
-                }
-                if (params.taskType === TaskTypes.CREATE) {
-                    // required table create-access for non-admin user
-                    accessRes = await crud.checkTaskAccess();
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                }
-            }
-
             return await crud.saveRecord();
         } catch (e) {
             console.error(e);
@@ -871,6 +807,6 @@ export class Model<T extends BaseModelType> {
 }
 
 // factory function
-export function newModel(model: ModelDescType, options: ModelCrudOptionsType = {}) {
-    return new Model(model, options);
+export function newModel<T extends BaseModelType>(model: ModelDescType, options: ModelCrudOptionsType = {}) {
+    return new Model<T>(model, options);
 }

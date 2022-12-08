@@ -9,8 +9,6 @@ import { collections } from "../collections.ts";
 
 // Models
 
-// TODO: include groups and categories collections, with relations-specs
-
 export interface GroupType extends BaseModelType {
     name: string;
 }
