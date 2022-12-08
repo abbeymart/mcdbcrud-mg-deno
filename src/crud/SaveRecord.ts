@@ -10,7 +10,7 @@ import { ObjectId, getResMessage, ResponseMessage, deleteHashCache, } from "../.
 import Crud from "./Crud.ts";
 import {
     ActionParamTaskType, AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, CrudResultType,
-    ExistParamsType, GetResultType,
+    ExistParamsType,
     LogDocumentsType, ObjectType, QueryParamsType,
     TaskTypes,
 } from "./types.ts";
@@ -240,7 +240,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
     computeItems(modelOptions: ModelOptionsType = this.modelOptions): ActionParamTaskType<T> {
         const updateItems: Array<T> = [],
             createItems: Array<T> = [];
-
         // Ensure the _id for actionParams are of type mongoDb-new ObjectId, for update actions
         // cases - actionParams.length === 1 OR > 1
         if (this.actionParams.length === 1) {
@@ -442,129 +441,132 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 );
                 updateCount += updateResult.modifiedCount;
                 updateMatchedCount += updateResult.matchedCount
-                // optional step, update the child-collections (update-cascade) | from current and new update-field-values
-                if (this.updateCascade && this.childRelations.length > 0) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine update-cascade-action
-                        if (!cItem.targetModel) {
-                            // handle as error
-                            const recErrorMsg = "Target model is required to complete the update-cascade-task";
-                            errorMsg = errorMsg ? `${errorMsg} | ${recErrorMsg}` : recErrorMsg;
-                            continue;
-                        }
-                        // const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const currentFieldValue = currentRec[sourceField] || null;   // current value
-                        const newFieldValue = (item as unknown as ObjectType)[sourceField] || null;         // new value (set-value)
-                        if (currentFieldValue === newFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = newFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            
-                            throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
-                        }
-                    }
-                }
-                // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
-                else if (this.updateSetDefault && this.childRelations.length > 0) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel) {
-                            // handle as error
-                            
-                            throw new Error("Target model is required to complete the set-default-task");
-                        }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        // compute default values for the targetFields
-                        const defaultDocValue = await this.computeDefaultValues(targetDocDesc);
-                        const currentFieldValue = currentRec[sourceField];   // current value of the targetField
-                        const defaultFieldValue = defaultDocValue[targetField] || null;
-                        if (currentFieldValue === defaultFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField default value | check if setDefault is permissible for the targetField
-                        let targetFieldDesc = targetDocDesc[targetField];
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-default-field
-                                if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
-                                    
-                                    throw new Error("Target/foreignKey default-value is required to complete the set-default task");
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = defaultFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            
-                            throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
+                // from current and new update-field-values
+                if (this.childRelations.length > 0 || updateResult.modifiedCount < 1) {
+                    if (this.updateCascade) {
+                        const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
+                        for await (const cItem of childRelations) {
+                            const sourceField = cItem.sourceField;
+                            const targetField = cItem.targetField;
+                            // check if targetModel is defined/specified, required to determine update-cascade-action
+                            if (!cItem.targetModel) {
+                                // handle as error
+                                const recErrorMsg = "Target model is required to complete the update-cascade-task";
+                                errorMsg = errorMsg ? `${errorMsg} | ${recErrorMsg}` : recErrorMsg;
+                                continue;
+                            }
+                            // const targetDocDesc = cItem.targetModel?.docDesc || {};
+                            const targetColl = cItem.targetModel.collName || cItem.targetColl;
+                            const currentFieldValue = currentRec[sourceField] || null;   // current value
+                            const newFieldValue = (item as unknown as ObjectType)[sourceField] || null;         // new value (set-value)
+                            if (currentFieldValue === newFieldValue) {
+                                // skip update
+                                continue;
+                            }
+                            const updateQuery: QueryParamsType = {};
+                            const updateSet: ObjectType = {};
+                            updateQuery[targetField] = currentFieldValue;
+                            updateSet[targetField] = newFieldValue;
+                            const TargetColl = this.appDb.collection(targetColl);
+                            const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
+                            if (updateRes.modifiedCount !== updateRes.matchedCount) {
+
+                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                            }
                         }
                     }
-                } else if (this.updateSetNull && this.childRelations.length > 0) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel) {
-                            // handle as error
-                            
-                            throw new Error("Target model is required to complete the set-null-task");
+                    // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
+                    else if (this.updateSetDefault) {
+                        const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
+                        for await (const cItem of childRelations) {
+                            const sourceField = cItem.sourceField;
+                            const targetField = cItem.targetField;
+                            // check if targetModel is defined/specified, required to determine default-action
+                            if (!cItem.targetModel) {
+                                // handle as error
+
+                                throw new Error("Target model is required to complete the set-default-task");
+                            }
+                            const targetDocDesc = cItem.targetModel?.docDesc || {};
+                            const targetColl = cItem.targetModel.collName || cItem.targetColl;
+                            // compute default values for the targetFields
+                            const defaultDocValue = await this.computeDefaultValues(targetDocDesc);
+                            const currentFieldValue = currentRec[sourceField];   // current value of the targetField
+                            const defaultFieldValue = defaultDocValue[targetField] || null;
+                            if (currentFieldValue === defaultFieldValue) {
+                                // skip update
+                                continue;
+                            }
+                            // validate targetField default value | check if setDefault is permissible for the targetField
+                            let targetFieldDesc = targetDocDesc[targetField];
+                            switch (typeof targetFieldDesc) {
+                                case "object":
+                                    targetFieldDesc = targetFieldDesc as FieldDescType
+                                    // handle non-default-field
+                                    if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
+
+                                        throw new Error("Target/foreignKey default-value is required to complete the set-default task");
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                            const updateQuery: QueryParamsType = {};
+                            const updateSet: ObjectType = {};
+                            updateQuery[targetField] = currentFieldValue;
+                            updateSet[targetField] = defaultFieldValue;
+                            const TargetColl = this.appDb.collection(targetColl);
+                            const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
+                            if (updateRes.modifiedCount !== updateRes.matchedCount) {
+
+                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                            }
                         }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const currentFieldValue = currentRec[sourceField];  // current value of the targetField
-                        const initializeDocValue = this.computeInitializeValues(targetDocDesc)
-                        const nullFieldValue = initializeDocValue[targetField] || null;
-                        if (currentFieldValue === nullFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField null value | check if allowNull is permissible for the targetField
-                        let targetFieldDesc = targetDocDesc[targetField];
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-null-field
-                                if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
-                                    
-                                    throw new Error("Target/foreignKey allowNull is required to complete the set-null task");
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = nullFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            
-                            throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                    } else if (this.updateSetNull) {
+                        const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
+                        for await (const cItem of childRelations) {
+                            const sourceField = cItem.sourceField;
+                            const targetField = cItem.targetField;
+                            // check if targetModel is defined/specified, required to determine allowNull-action
+                            if (!cItem.targetModel) {
+                                // handle as error
+
+                                throw new Error("Target model is required to complete the set-null-task");
+                            }
+                            const targetDocDesc = cItem.targetModel?.docDesc || {};
+                            const targetColl = cItem.targetModel.collName || cItem.targetColl;
+                            const currentFieldValue = currentRec[sourceField];  // current value of the targetField
+                            const initializeDocValue = this.computeInitializeValues(targetDocDesc)
+                            const nullFieldValue = initializeDocValue[targetField] || null;
+                            if (currentFieldValue === nullFieldValue) {
+                                // skip update
+                                continue;
+                            }
+                            // validate targetField null value | check if allowNull is permissible for the targetField
+                            let targetFieldDesc = targetDocDesc[targetField];
+                            switch (typeof targetFieldDesc) {
+                                case "object":
+                                    targetFieldDesc = targetFieldDesc as FieldDescType
+                                    // handle non-null-field
+                                    if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
+
+                                        throw new Error("Target/foreignKey allowNull is required to complete the set-null task");
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                            const updateQuery: QueryParamsType = {};
+                            const updateSet: ObjectType = {};
+                            updateQuery[targetField] = currentFieldValue;
+                            updateSet[targetField] = nullFieldValue;
+                            const TargetColl = this.appDb.collection(targetColl);
+                            const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
+                            if (updateRes.modifiedCount !== updateRes.matchedCount) {
+
+                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                            }
                         }
                     }
                 }
@@ -639,10 +641,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             if (currentRecRes.code !== "success") {
                 return currentRecRes;
             }
-            const recValue = currentRecRes.value as unknown as GetResultType<T>;
-            const currentRecs  = recValue.records;
+            const currentRecs = currentRecRes.value as unknown as Array<T>;
             // destruct _id /other attributes
-            // const item = this.actionParams[0];
             const {_id, ...otherParams} = this.actionParams[0];
             // update multiple documents
             const appDbColl = this.appDb.collection(this.coll);
@@ -653,9 +653,13 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             );
             const updateCount = updateResult.modifiedCount;
             const updateMatchedCount = updateResult.matchedCount
-            // optional step, update the child-collections (update-cascade) | from current and new update-field-values
-            for (const item of currentRecs) {
-                if (this.updateCascade && this.childRelations.length > 0) {
+            // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
+            // from current and new update-field-values
+            for (const currentRec of currentRecs) {
+                if (this.childRelations.length < 1 || updateResult.modifiedCount < 1) {
+                    break;
+                }
+                if (this.updateCascade) {
                     const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
@@ -669,8 +673,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         }
                         // const targetDocDesc = cItem.targetModel?.docDesc || {};
                         const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const currentFieldValue = item[sourceField] || null;   // current value
-                        const newFieldValue = item[sourceField] || null;         // new value (set-value)
+                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;   // current value
+                        const newFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;         // new value (set-value)
                         if (currentFieldValue === newFieldValue) {
                             // skip update
                             continue;
@@ -687,7 +691,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         }
                     }
                 } // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
-                else if (this.updateSetDefault && this.childRelations.length > 0) {
+                else if (this.updateSetDefault) {
                     const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
@@ -703,7 +707,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const targetColl = cItem.targetModel.collName || cItem.targetColl;
                         // compute default values for the targetFields
                         const defaultDocValue = await this.computeDefaultValues(targetDocDesc);
-                        const currentFieldValue = item[sourceField];   // current value of the targetField
+                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField];   // current value of the targetField
                         const defaultFieldValue = defaultDocValue[targetField] || null;
                         if (currentFieldValue === defaultFieldValue) {
                             // skip update
@@ -735,7 +739,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
-                } else if (this.updateSetNull && this.childRelations.length > 0) {
+                } else if (this.updateSetNull) {
                     const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
@@ -749,7 +753,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         }
                         const targetDocDesc = cItem.targetModel?.docDesc || {};
                         const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const currentFieldValue = item[sourceField];  // current value of the targetField
+                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField];  // current value of the targetField
                         const initializeDocValue = this.computeInitializeValues(targetDocDesc)
                         const nullFieldValue = initializeDocValue[targetField] || null;
                         if (currentFieldValue === nullFieldValue) {
@@ -829,7 +833,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {
                 message: "Access-security-sensitive collections update are not allowed - via crud package."
-            })
+            });
         }
         if (isEmptyObject(this.queryParams)) {
             return getResMessage("paramsError", {
@@ -856,19 +860,20 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             // include item stamps: userId and date
             otherParams.updatedBy = this.userId;
             otherParams.updatedAt = new Date();
-            // const updateParams = otherParams;
-
             const updateResult = await appDbColl.updateMany(
                 this.queryParams,
                 {$set: otherParams},
             );
             const updateCount = updateResult.modifiedCount;
             const updateMatchedCount = updateResult.matchedCount
-            // optional step, update the child-collections (for update-cascade) | from actionParams[0]-item
-            // update the child-collections (update-cascade) | from current and new update-field-values
-            if (this.updateCascade && this.childRelations.length > 0) {
-                const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
-                for await (const currentRec of currentRecs) {
+            // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
+            // from current and new update-field-values
+            for await (const currentRec of currentRecs) {
+                if (this.childRelations.length < 1 || updateResult.modifiedCount < 1) {
+                    break;
+                }
+                if (this.updateCascade) {
+                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
@@ -898,18 +903,16 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
-                }
-            } // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
-            else if (this.updateSetDefault && this.childRelations.length > 0) {
-                const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
-                for await (const currentRec of currentRecs) {
+                } // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
+                else if (this.updateSetDefault) {
+                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine default-action
                         if (!cItem.targetModel) {
                             // handle as error
-                            
+
                             throw new Error("Target model is required to complete the set-default-task");
                         }
                         const targetDocDesc = cItem.targetModel?.docDesc || {};
@@ -944,14 +947,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            
+
                             throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
                         }
                     }
-                }
-            } else if (this.updateSetNull && this.childRelations.length > 0) {
-                const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
-                for await (const currentRec of currentRecs) {
+                } else if (this.updateSetNull) {
+                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;

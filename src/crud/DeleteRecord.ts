@@ -250,9 +250,15 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
 
     async removeRecordById(): Promise<ResponseMessage> {
         // delete/remove records and log in audit-collection
-        // id(s): convert string to ObjectId
-        const docIds = this.docIds.map(id => new ObjectId(id));
         try {
+            // check current documents prior to update
+            const currentRecRes = await this.getCurrentRecords("id");
+            if (currentRecRes.code !== "success") {
+                return currentRecRes;
+            }
+            const currentRecs = currentRecRes.value as unknown as Array<T>;
+            // id(s): convert string to ObjectId
+            const docIds = this.docIds.map(id => new ObjectId(id));
             let errMsg = "";
             const appDbColl = this.appDb.collection<T>(this.coll);
             const qParams: QueryParamsType = {_id: {$in: docIds,}};
@@ -261,9 +267,18 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 throw new Error(`Unable to delete the specified records [${removed} of ${docIds.length} set to be removed].`)
             }
             // optional, update child-collection-documents for setDefault and setNull/initialize-value?', i.e. if this.deleteSetDefault or this.deleteSetNull
-            if (this.deleteSetDefault && this.childRelations.length > 0) {
-                const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
-                for await (const currentRec of this.currentRecs) {
+            for await (const currentRec of currentRecs) {
+                if (this.childRelations.length < 1) {
+                    break;
+                }
+                // validate deleted document vs prior-currentDocument
+                const qParams = {_id: currentRec._id} as Filter<T>;
+                const undeletedRec = await appDbColl.findOne(qParams);
+                if (undeletedRec) {
+                    continue;
+                }
+                if (this.deleteSetDefault) {
+                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
@@ -310,10 +325,8 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
-                }
-            } else if (this.deleteSetNull && this.childRelations.length > 0) {
-                const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
-                for await (const currentRec of this.currentRecs) {
+                } else if (this.deleteSetNull) {
+                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
                     for await (const cItem of childRelations) {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
@@ -400,6 +413,12 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
     async removeRecordByParams(): Promise<ResponseMessage> {
         // delete/remove records and log in audit-collection
         try {
+            // check current documents prior to update
+            const currentRecRes = await this.getCurrentRecords("queryParams");
+            if (currentRecRes.code !== "success") {
+                return currentRecRes;
+            }
+            const currentRecs = currentRecRes.value as unknown as Array<T>;
             let errMsg = "";
             if (this.queryParams && !isEmptyObject(this.queryParams)) {
                 const appDbColl = this.appDb.collection<T>(this.coll);
@@ -407,11 +426,19 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 if (!removed || removed < 1) {
                     throw new Error(`Unable to delete the specified records [${removed} of ${this.currentRecs.length} set to be removed].`)
                 }
-                // TODO: validate deleted documents vs prior-currentRecs
                 // optional, update child-collection-documents for setDefault and setNull/initialize-value?, if this.deleteSetDefault or this.deleteSetNull
-                if (this.deleteSetDefault && this.childRelations.length > 0) {
-                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
-                    for await (const currentRec of this.currentRecs) {
+                for await (const currentRec of currentRecs) {
+                    if (this.childRelations.length < 1) {
+                        break;
+                    }
+                    // validate deleted document vs prior-currentDocument
+                    const qParams = {_id: currentRec._id} as Filter<T>;
+                    const undeletedRec = await appDbColl.findOne(qParams);
+                    if (undeletedRec) {
+                        continue;
+                    }
+                    if (this.deleteSetDefault) {
+                        const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
                         for await (const cItem of childRelations) {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField
@@ -457,10 +484,9 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
-                    }
-                } else if (this.deleteSetNull && this.childRelations.length > 0) {
-                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
-                    for await (const currentRec of this.currentRecs) {
+
+                    } else if (this.deleteSetNull) {
+                        const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
                         for await (const cItem of childRelations) {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField;
