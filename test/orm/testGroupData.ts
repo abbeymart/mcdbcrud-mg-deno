@@ -1,7 +1,7 @@
 // @Description: test-cases data: for get, delete and save record(s)
 
 import {
-    ActionParamType, TaskTypes, QueryParamsType, ModelRelationType, RelationTypes, RelationActionTypes,
+    ActionParamType, QueryParamsType, ModelRelationType, RelationTypes, RelationActionTypes,
     ModelDescType, BaseModel, DataTypes, ModelCrudOptionsType, newModel, AuditType, ObjectType,
     BaseModelType,
 } from "../../src/index.ts"

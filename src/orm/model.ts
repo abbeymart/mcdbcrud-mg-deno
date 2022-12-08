@@ -689,7 +689,7 @@ export class Model<T extends BaseModelType> {
                 }
                 if (params.taskType === TaskTypes.CREATE) {
                     // required table create-access for non-admin user
-                    accessRes = await crud.checkTaskAccess(params.userInfo as UserInfoType);
+                    accessRes = await crud.checkTaskAccess();
                     if (accessRes.code !== "success") {
                         return accessRes;
                     }
