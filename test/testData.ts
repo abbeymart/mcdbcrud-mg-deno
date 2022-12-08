@@ -264,7 +264,7 @@ export const AuditUpdateActionParams: Array<AuditType> = [
 // TODO: update and delete params, by ids / queryParams
 
 export const AuditUpdateRecordById: ObjectType = {
-    "id"           : "638fd873a02862d754fa0247",
+    "_id"          : "638fd873a02862d754fa0247",
     "collName"     : "groups",
     "logAt"        : new Date(),
     "logBy"        : UserId,
@@ -274,7 +274,7 @@ export const AuditUpdateRecordById: ObjectType = {
 }
 
 export const AuditUpdateRecordByParam: ActionParamType = {
-    "id"           : "638fd873a02862d754fa0248",
+    "_id"          : "638fd873a02862d754fa0248",
     "collName"     : "contacts",
     "logAt"        : new Date(),
     "logBy"        : UserId,

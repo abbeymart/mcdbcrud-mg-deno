@@ -6,7 +6,7 @@
 ## Usage
 
 ```ts
-import { newSaveRecord } from "https://deno.land/x/mcdbcrud@v0.2.5/mod.ts";
+import { newSaveRecord } from "https://deno.land/x/mcdbcrud-mg@v0.1.1/mod.ts";
 
 // See the test folder for different test cases / scenarios and usage
 ```
