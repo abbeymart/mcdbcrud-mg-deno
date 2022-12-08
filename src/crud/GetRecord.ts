@@ -5,7 +5,7 @@
  */
 
 // Import required module(s)
-import { ObjectId, getHashCache, setHashCache, getResMessage, ResponseMessage, Filter, } from "../../deps.ts";
+import { ObjectId, getHashCache, setHashCache, getResMessage, ResponseMessage, } from "../../deps.ts";
 import { isEmptyObject } from "../orm/index.ts";
 import Crud from "./Crud.ts";
 import {
@@ -13,7 +13,6 @@ import {
     BaseModelType, CrudOptionsType, CrudParamsType, GetRecords, GetRecordStats, GetResultType, LogDocumentsType,
     ObjectType,
     QueryParamsType,
-    ValueType
 } from "./types.ts";
 
 class GetRecord<T extends BaseModelType> extends Crud<T> {
@@ -107,9 +106,9 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                 // id(s): convert string to ObjectId
                 const docIds = this.docIds.map(id => new ObjectId(id));
                 // use / activate database
-                const appDbColl = this.appDb.collection<T>(this.coll);
+                const appDbColl = this.appDb.collection(this.coll);
                 const qParams: QueryParamsType = {_id: {$in: docIds}};
-                const result = await appDbColl.find(qParams as Filter<ValueType>)
+                const result = await appDbColl.find(qParams)
                     .skip(this.skip)
                     .limit(this.limit)
                     .sort(this.sortParams)
@@ -145,8 +144,8 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             try {
                 // use / activate database
-                const appDbColl = this.appDb.collection<T>(this.coll);
-                const result = await appDbColl.find(this.queryParams as Filter<ValueType>)
+                const appDbColl = this.appDb.collection(this.coll);
+                const result = await appDbColl.find(this.queryParams)
                     .skip(this.skip)
                     .limit(this.limit)
                     .sort(this.sortParams)
@@ -180,7 +179,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         // get all the collection-documents, up to the permissible limit
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            const appDbColl = this.appDb.collection(this.coll);
             const result = await appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
@@ -278,9 +277,9 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
             // id(s): convert string to ObjectId
             const docIds = this.docIds.map(id => new ObjectId(id));
             // use / activate database
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            const appDbColl = this.appDb.collection(this.coll);
             const qParams: QueryParamsType = {_id: {$in: docIds}};
-            const result = await appDbColl.find(qParams as Filter<ValueType>)
+            const result = await appDbColl.find(qParams)
                 .skip(this.skip)
                 .limit(this.limit)
                 .sort(this.sortParams)
@@ -383,8 +382,8 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         // Get the collection-documents by queryParams
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection<T>(this.coll);
-            const result = await appDbColl.find(this.queryParams as Filter<ValueType>)
+            const appDbColl = this.appDb.collection(this.coll);
+            const result = await appDbColl.find(this.queryParams)
                 .skip(this.skip)
                 .limit(this.limit)
                 .sort(this.sortParams)
@@ -457,7 +456,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         // get all collection-documents, up to the permissible limit
         try {
             // use / activate database
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            const appDbColl = this.appDb.collection(this.coll);
             const result = await appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)

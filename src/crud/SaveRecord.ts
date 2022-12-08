@@ -356,7 +356,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         // insert/create record(s) and log in audit-collection
         try {
             // insert/create multiple documents and audit-log
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            const appDbColl = this.appDb.collection(this.coll);
             const insertResult = await appDbColl.insertMany(this.createItems);
             // perform cache and audi-log tasks
             if (insertResult.insertedCount > 0) {
@@ -399,7 +399,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {
                 message: "Access-security-sensitive collections update are not allowed - via crud package."
-            })
+            });
         }
         if (this.isRecExist) {
             return getResMessage("recExist", {
@@ -421,7 +421,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             // check/validate update/upsert command for multiple documents
             let updateCount = 0;
             let updateMatchedCount = 0;
-            let errorMsg = "";
+            let errMsg = "";
             // update multiple documents
             const appDbColl = this.appDb.collection(this.coll);
             for await (const item of this.updateItems) {
@@ -429,10 +429,10 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 const {_id, ...otherParams} = item;
                 // current record prior to update
                 const currentRec = await appDbColl.findOne({_id: new ObjectId(_id)});
-                if (!currentRec || isEmptyObject(currentRec)) {
+                if (!currentRec || isEmptyObject(currentRec as unknown as ObjectType)) {
                     const recErrorMsg = "Unable to retrieve current record for update.";
-                    errorMsg = errorMsg ?
-                        `${errorMsg} | ${recErrorMsg}` : recErrorMsg;
+                    errMsg = errMsg ?
+                        `${errMsg} | ${recErrorMsg}` : recErrorMsg;
                     continue;
                 }
                 const updateResult = await appDbColl.updateOne(
@@ -443,17 +443,17 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 updateMatchedCount += updateResult.matchedCount
                 // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
                 // from current and new update-field-values
-                if (this.childRelations.length > 0 || updateResult.modifiedCount < 1) {
+                if (this.childRelations.length > 0 && updateResult.modifiedCount > 0) {
                     if (this.updateCascade) {
                         const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
                         for await (const cItem of childRelations) {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField;
                             // check if targetModel is defined/specified, required to determine update-cascade-action
-                            if (!cItem.targetModel) {
+                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
                                 const recErrorMsg = "Target model is required to complete the update-cascade-task";
-                                errorMsg = errorMsg ? `${errorMsg} | ${recErrorMsg}` : recErrorMsg;
+                                errMsg = errMsg ? `${errMsg} | ${recErrorMsg}` : recErrorMsg;
                                 continue;
                             }
                             // const targetDocDesc = cItem.targetModel?.docDesc || {};
@@ -471,8 +471,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-
-                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
                     }
@@ -483,7 +483,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField;
                             // check if targetModel is defined/specified, required to determine default-action
-                            if (!cItem.targetModel) {
+                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
 
                                 throw new Error("Target model is required to complete the set-default-task");
@@ -529,10 +529,11 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField;
                             // check if targetModel is defined/specified, required to determine allowNull-action
-                            if (!cItem.targetModel) {
+                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
-
-                                throw new Error("Target model is required to complete the set-null-task");
+                                const recErrMsg = "Target model is required to complete the set-null-task";
+                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                                continue;
                             }
                             const targetDocDesc = cItem.targetModel?.docDesc || {};
                             const targetColl = cItem.targetModel.collName || cItem.targetColl;
@@ -665,7 +666,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine update-cascade-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the update-cascade-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -697,7 +698,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the set-default-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -745,7 +746,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the set-null-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -878,7 +879,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine update-cascade-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the update-cascade-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -910,7 +911,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
 
                             throw new Error("Target model is required to complete the set-default-task");
@@ -957,7 +958,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the set-null-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;

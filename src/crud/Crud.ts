@@ -5,7 +5,7 @@
  */
 
 // Import required module/function(s)/types
-import { Database, MongoClient, ObjectId, getResMessage, ResponseMessage, Filter } from "../../deps.ts";
+import { Database, MongoClient, ObjectId, getResMessage, ResponseMessage, Filter, Document } from "../../deps.ts";
 import {
     UserInfoType,
     CrudParamsType,
@@ -283,13 +283,13 @@ export class Crud<T extends BaseModelType> {
             if (validDb.code !== "success") {
                 return validDb;
             }
-            let currentRecords: Array<T>;
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            let currentRecords: Array<Document>;
+            const appDbColl = this.appDb.collection(this.coll);
             switch (by.toLowerCase()) {
                 case "id": {
                     const docIds = this.docIds.map(id => new ObjectId(id));
                     const qParams: QueryParamsType = {_id: {$in: docIds}};
-                    currentRecords = await appDbColl.find(qParams as Filter<ValueType>)
+                    currentRecords = await appDbColl.find(qParams)
                         .skip(this.skip)
                         .limit(this.limit)
                         .toArray();
@@ -331,7 +331,7 @@ export class Crud<T extends BaseModelType> {
             // response for by queryParams or all-documents
             if (currentRecords.length > 0) {
                 // update crud instance current-records value
-                this.currentRecs = currentRecords;
+                this.currentRecs = currentRecords as Array<T>;
                 return getResMessage("success", {
                     message: `${currentRecords.length} document/record(s) retrieved successfully.`,
                     value  : currentRecords as unknown as Array<ObjectType>,

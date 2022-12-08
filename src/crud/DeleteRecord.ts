@@ -182,7 +182,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             const subItems: Array<SubItemsType> = []
             // docIds ref-check
             const childExist = this.childRelations.some(async (relation) => {
-                const targetDbColl = this.appDb.collection<T>(relation.targetColl);
+                const targetDbColl = this.appDb.collection(relation.targetColl);
                 // include foreign-key/target as the query condition
                 const targetField = relation.targetField;
                 const sourceField = relation.sourceField;
@@ -260,7 +260,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             // id(s): convert string to ObjectId
             const docIds = this.docIds.map(id => new ObjectId(id));
             let errMsg = "";
-            const appDbColl = this.appDb.collection<T>(this.coll);
+            const appDbColl = this.appDb.collection(this.coll);
             const qParams: QueryParamsType = {_id: {$in: docIds,}};
             const removed = await appDbColl.deleteMany(qParams as Filter<ValueType>);
             if (!removed || removed < 1) {
@@ -283,7 +283,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the set-default-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -331,7 +331,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         const sourceField = cItem.sourceField;
                         const targetField = cItem.targetField;
                         // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel) {
+                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
                             const recErrMsg = "Target model is required to complete the set-null-task";
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -421,7 +421,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             const currentRecs = currentRecRes.value as unknown as Array<T>;
             let errMsg = "";
             if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                const appDbColl = this.appDb.collection<T>(this.coll);
+                const appDbColl = this.appDb.collection(this.coll);
                 const removed = await appDbColl.deleteMany(this.queryParams as Filter<ValueType>);
                 if (!removed || removed < 1) {
                     throw new Error(`Unable to delete the specified records [${removed} of ${this.currentRecs.length} set to be removed].`)
@@ -443,7 +443,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField
                             // check if targetModel is defined/specified, required to determine default-action
-                            if (!cItem.targetModel) {
+                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
                                 const recErrMsg = "Target model is required to complete the set-default-task";
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
@@ -484,14 +484,13 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
-
                     } else if (this.deleteSetNull) {
                         const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
                         for await (const cItem of childRelations) {
                             const sourceField = cItem.sourceField;
                             const targetField = cItem.targetField;
                             // check if targetModel is defined/specified, required to determine allowNull-action
-                            if (!cItem.targetModel) {
+                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
                                 const recErrMsg = "Target model is required to complete the set-null-task";
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
