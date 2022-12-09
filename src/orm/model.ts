@@ -25,7 +25,7 @@ import {
 } from "./types.ts";
 import {
     ActionExistParamsType,
-    BaseModelType, CheckAccessType,
+    BaseModelType,
     CrudOptionsType,
     CrudParamsType, ExistParamItemType,
     ExistParamsType,
@@ -598,7 +598,7 @@ export class Model<T extends BaseModelType> {
             // model specific params
             params.coll = this.modelCollName;
             params.docDesc = this.modelDocDesc;
-            this.taskType = TaskTypes.UNKNOWN;
+            this.taskType = TaskTypes.UNKNOWN;  // CREATE or UPDATE task-type
             // set checkAccess status for crud-task-permission control
             options.checkAccess = typeof options.checkAccess !== "undefined" ? options.checkAccess : false;
             this.checkAccess = options.checkAccess;
@@ -644,39 +644,12 @@ export class Model<T extends BaseModelType> {
             // model specific params
             params.coll = this.modelCollName;
             params.docDesc = this.modelDocDesc;
-            params.taskType = params.taskType || TaskTypes.READ;
+            params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
             // set access:
             options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
             this.checkAccess = options.checkAccess;
             const crud = newGetRecord(params, options);
-            // check access permission
-            let loginStatusRes: ResponseMessage = getResMessage("unknown");
-            if (this.checkAccess) {
-                loginStatusRes = await crud.checkLoginStatus();
-                if (loginStatusRes.code !== "success") {
-                    return loginStatusRes;
-                }
-            }
-            let accessRes: ResponseMessage;
-            // loginStatusRes.value.isAdmin
-            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (params.docIds && params.docIds.length > 0) {
-                    accessRes = await crud.taskPermissionById(params.taskType);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else if (params.queryParams && !isEmptyObject(params.queryParams)) {
-                    accessRes = await crud.taskPermissionByParams(params.taskType);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else {
-                    return getResMessage("unAuthorized", {
-                        message: "Restricted records may only be read by ids or queryParams (owner), or by admin-role only",
-                    });
-                }
-            }
             return await crud.getRecord();
         } catch (e) {
             console.error(e);
@@ -690,39 +663,12 @@ export class Model<T extends BaseModelType> {
             // model specific params
             params.coll = this.modelCollName;
             params.docDesc = this.modelDocDesc;
-            params.taskType = params.taskType || TaskTypes.READ;
+            params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
             // set access:
             options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
             this.checkAccess = options.checkAccess;
             const crud = newGetRecordStream(params, options);
-            // check access permission
-            let loginStatusRes: ResponseMessage = getResMessage("unknown");
-            if (this.checkAccess) {
-                loginStatusRes = await crud.checkLoginStatus();
-                if (loginStatusRes.code !== "success") {
-                    throw new Error(`${loginStatusRes.code}: ${loginStatusRes.message}`);
-                }
-            }
-            let accessRes: ResponseMessage;
-            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (params.docIds && params.docIds.length > 0) {
-                    accessRes = await crud.taskPermissionById(params.taskType);
-                    if (accessRes.code !== "success") {
-                        throw new Error(`${accessRes.code}: ${accessRes.message}`);
-                    }
-                } else if (params.queryParams && !isEmptyObject(params.queryParams)) {
-                    accessRes = await crud.taskPermissionByParams(params.taskType);
-                    if (accessRes.code !== "success") {
-                        throw new Error(`${accessRes.code}: ${accessRes.message}`);
-                    }
-                } else {
-                    const accessRes = getResMessage("unAuthorized", {
-                        message: "Restricted records may only be read by ids or queryParams (owner), or by admin-role only",
-                    });
-                    throw new Error(`${accessRes.code}: ${accessRes.message}`);
-                }
-            }
             return await crud.getRecordStream();
         } catch (e) {
             console.error(e);
@@ -736,7 +682,7 @@ export class Model<T extends BaseModelType> {
             // model specific params
             params.coll = this.modelCollName;
             params.docDesc = this.modelDocDesc;
-            params.taskType = params.taskType || TaskTypes.READ;
+            params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
             // set access
             options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
@@ -772,32 +718,6 @@ export class Model<T extends BaseModelType> {
                 }
             }
             const crud = newDeleteRecord(params, options);
-            // check access permission
-            let loginStatusRes: ResponseMessage = getResMessage("unknown");
-            if (this.checkAccess) {
-                loginStatusRes = await crud.checkLoginStatus();
-                if (loginStatusRes.code !== "success") {
-                    return loginStatusRes;
-                }
-            }
-            let accessRes: ResponseMessage;
-            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (params.docIds && params.docIds.length > 0) {
-                    accessRes = await crud.taskPermissionById(params.taskType);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else if (params.queryParams && !isEmptyObject(params.queryParams)) {
-                    accessRes = await crud.taskPermissionByParams(params.taskType);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else {
-                    return getResMessage("deleteError", {
-                        message: "Restricted records may only be deleted by ids or queryParams (owner), or by admin-role only",
-                    });
-                }
-            }
             return await crud.deleteRecord();
         } catch (e) {
             console.error(e);

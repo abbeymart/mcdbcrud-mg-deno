@@ -5,22 +5,14 @@
  */
 
 // Import required module/function(s)/types
-import { Database, MongoClient, ObjectId, getResMessage, ResponseMessage, Filter, Document } from "../../deps.ts";
+import { Database, Document, Filter, getResMessage, MongoClient, ObjectId, ResponseMessage } from "../../deps.ts";
 import {
-    UserInfoType,
-    CrudParamsType,
-    CrudOptionsType,
-    RoleServiceResponseType,
-    CheckAccessType,
-    TaskTypes,
-    RoleFuncType,
-    OkResponse,
-    QueryParamsType,
-    ProjectParamsType, SortParamsType, SubItemsType, ActionParamType, FieldValueTypes, ObjectType,
-    ActionExistParamsType, ValueType, BaseModelType,
+    ActionExistParamsType, ActionParamType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType,
+    FieldValueTypes, ObjectType, OkResponse, ProjectParamsType, QueryParamsType, RoleFuncType, RoleServiceResponseType,
+    SortParamsType, SubItemsType, TaskTypes, UserInfoType, ValueType,
 } from "./types.ts";
-import {AuditLog, newAuditLog} from "../auditlog/index.ts";
-import {DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType} from "../orm/index.ts";
+import { AuditLog, newAuditLog } from "../auditlog/index.ts";
+import { DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType } from "../orm/index.ts";
 
 export class Crud<T extends BaseModelType> {
     protected params: CrudParamsType<T>;
@@ -509,7 +501,7 @@ export class Crud<T extends BaseModelType> {
     }
 
     // checkAccess validate if current CRUD task is permitted based on defined/assigned roles
-    async checkTaskAccess(): Promise<ResponseMessage> {
+    async checkTaskAccess(taskType: TaskTypes): Promise<ResponseMessage> {
         try {
             // validate models
             const validAccessDb = await this.checkDb(this.accessDb);
@@ -564,6 +556,31 @@ export class Crud<T extends BaseModelType> {
             if (permittedRes.isActive && recLen > 0 && recLen >= this.docIds.length) {
                 return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
             }
+            // TODO: collection/table level access: create, read, update and delete
+            const collRoleService = roleServices.find(it => it.serviceId === collId) || {} as RoleServiceResponseType;
+            let collAccessPermitted = false;
+            if (collRoleService) {
+                switch (taskType) {
+                    case TaskTypes.READ:
+                        collAccessPermitted = collRoleService.canRead || collRoleService.canCrud;
+                        break;
+                    case TaskTypes.CREATE:
+                        collAccessPermitted = collRoleService.canCreate|| collRoleService.canCrud;
+                        break;
+                    case TaskTypes.UPDATE:
+                        collAccessPermitted = collRoleService.canUpdate|| collRoleService.canCrud;
+                        break;
+                    case TaskTypes.DELETE:
+                    case TaskTypes.REMOVE:
+                        collAccessPermitted = collRoleService.canDelete || collRoleService.canCrud;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (collAccessPermitted) {
+                return getResMessage("success", {value: permittedRes as unknown as Record<string, ValueType>});
+            }
             return getResMessage("unAuthorized",
                 {
                     message: `Access permitted for ${recLen} of ${this.docIds.length} service-items/records`,
@@ -601,7 +618,7 @@ export class Crud<T extends BaseModelType> {
             docIds = this.docIds;
 
             // check role-based access
-            const accessRes = await this.checkTaskAccess();
+            const accessRes = await this.checkTaskAccess(taskType as TaskTypes);
             if (accessRes.code !== "success") {
                 return accessRes;
             }

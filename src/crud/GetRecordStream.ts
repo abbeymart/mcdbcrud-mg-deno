@@ -5,11 +5,12 @@
  */
 
 // Import required module(s)
-import { ObjectId, Document, Filter } from '../../deps.ts';
+import { ObjectId, Document, Filter, ResponseMessage, } from '../../deps.ts';
 import { isEmptyObject } from "../orm/index.ts";
 import Crud from './Crud.ts';
 import {
-    AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, LogDocumentsType, QueryParamsType, ValueType,
+    AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, LogDocumentsType,
+    QueryParamsType, TaskTypes, ValueType,
 } from "./types.ts";
 
 class GetRecordStream<T extends BaseModelType> extends Crud<T> {
@@ -19,6 +20,34 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
     }
 
     async getRecordStream(): Promise<AsyncIterable<Document>> {
+        // check access permission
+        if (this.checkAccess) {
+            const loginStatusRes = await this.checkLoginStatus();
+            if (loginStatusRes.code !== "success") {
+                throw new Error(loginStatusRes.message);
+            }
+            let accessRes: ResponseMessage;
+            // loginStatusRes.value.isAdmin
+            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                if (this.docIds && this.docIds.length > 0) {
+                    accessRes = await this.taskPermissionById(TaskTypes.READ);
+                    if (accessRes.code !== "success") {
+                        throw new Error(accessRes.message);
+                    }
+                } else if (this.queryParams && !isEmptyObject(this.queryParams)) {
+                    accessRes = await this.taskPermissionByParams(TaskTypes.READ);
+                    if (accessRes.code !== "success") {
+                        throw new Error(accessRes.message);
+                    }
+                } else {
+                    const accessRes = await this.checkTaskAccess(TaskTypes.READ);
+                    if (accessRes.code != "success") {
+                        throw new Error(accessRes.message);
+                    }
+                }
+            }
+        }
+
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -124,7 +153,7 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
                 .sort(this.sortParams)
         } catch (error) {
             console.error(error);
-            throw new Error(`notFound: ${error.message}`);
+            throw new Error(`${error.message}`);
         }
     }
 }

@@ -6,15 +6,14 @@
  */
 
 // Import required module/function(s)
-import { ObjectId, getResMessage, ResponseMessage, deleteHashCache, } from "../../deps.ts";
+import { deleteHashCache, getResMessage, ObjectId, ResponseMessage, } from "../../deps.ts";
 import Crud from "./Crud.ts";
 import {
-    ActionParamTaskType, AuditLogOptionsType, BaseModelType, CrudOptionsType, CrudParamsType, CrudResultType,
-    ExistParamsType,
-    LogDocumentsType, ObjectType, QueryParamsType,
-    TaskTypes,
+    ActionParamTaskType, AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType,
+    CrudResultType,
+    ExistParamsType, LogDocumentsType, ObjectType, QueryParamsType, TaskTypes,
 } from "./types.ts";
-import { ModelOptionsType, RelationActionTypes, isEmptyObject, FieldDescType } from "../orm/index.ts";
+import { FieldDescType, isEmptyObject, ModelOptionsType, RelationActionTypes } from "../orm/index.ts";
 
 class SaveRecord<T extends BaseModelType> extends Crud<T> {
     protected modelOptions: ModelOptionsType;
@@ -37,6 +36,13 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
     }
 
     async saveRecord(): Promise<ResponseMessage> {
+        // check access permission
+        if (this.checkAccess) {
+            const loginStatusRes = await this.checkLoginStatus();
+            if (loginStatusRes.code !== "success") {
+                return loginStatusRes;
+            }
+        }
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -111,15 +117,20 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         }
 
-
         // create records/document(s)
         if (this.taskType === TaskTypes.CREATE && this.createItems.length > 0) {
             try {
                 // check task-permission
                 if (this.checkAccess) {
-                    const accessRes = await this.checkTaskAccess();
-                    if (accessRes.code != "success") {
-                        return accessRes;
+                    const loginStatusRes = await this.checkLoginStatus();
+                    if (loginStatusRes.code !== "success") {
+                        return loginStatusRes;
+                    }
+                    if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                        const accessRes = await this.checkTaskAccess(TaskTypes.CREATE);
+                        if (accessRes.code != "success") {
+                            return accessRes;
+                        }
                     }
                 }
                 // create records
@@ -136,9 +147,15 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             try {
                 // check task-permission
                 if (this.checkAccess) {
-                    const accessRes = await this.taskPermissionById(this.taskType);
-                    if (accessRes.code != "success") {
-                        return accessRes;
+                    const loginStatusRes = await this.checkLoginStatus();
+                    if (loginStatusRes.code !== "success") {
+                        return loginStatusRes;
+                    }
+                    if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                        const accessRes = await this.taskPermissionById(TaskTypes.UPDATE);
+                        if (accessRes.code != "success") {
+                            return accessRes;
+                        }
                     }
                 }
                 // check currentRecords
@@ -164,9 +181,15 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             try {
                 // check task-permission
                 if (this.checkAccess) {
-                    const accessRes = await this.taskPermissionByParams(this.taskType);
-                    if (accessRes.code != "success") {
-                        return accessRes;
+                    const loginStatusRes = await this.checkLoginStatus();
+                    if (loginStatusRes.code !== "success") {
+                        return loginStatusRes;
+                    }
+                    if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                        const accessRes = await this.taskPermissionByParams(TaskTypes.UPDATE);
+                        if (accessRes.code != "success") {
+                            return accessRes;
+                        }
                     }
                 }
                 // check currentRecords
@@ -186,17 +209,23 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             }
         }
 
-        // update records/document(s), batch/multiple updates, for admin-users only
-        if (this.taskType === TaskTypes.UPDATE && this.updateItems.length > 0 && this.isAdmin) {
+        // update records/document(s), batch/multiple updates
+        if (this.taskType === TaskTypes.UPDATE && this.updateItems.length > 0) {
             // update the instance-docIds
             if (docIds.length > 0) {
                 this.docIds = docIds;
             }
             // check task-permission
             if (this.checkAccess) {
-                const accessRes = await this.taskPermissionById(this.taskType);
-                if (accessRes.code != "success") {
-                    return accessRes;
+                const loginStatusRes = await this.checkLoginStatus();
+                if (loginStatusRes.code !== "success") {
+                    return loginStatusRes;
+                }
+                if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                    const accessRes = await this.taskPermissionById(TaskTypes.UPDATE);
+                    if (accessRes.code != "success") {
+                        return accessRes;
+                    }
                 }
             }
             // check currentRecords

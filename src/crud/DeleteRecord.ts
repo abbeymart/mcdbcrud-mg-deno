@@ -6,13 +6,11 @@
  */
 
 // Import required module/function(s)
-import { ObjectId, getResMessage, ResponseMessage, deleteHashCache, Filter } from "../../deps.ts";
+import { deleteHashCache, Filter, getResMessage, ObjectId, ResponseMessage } from "../../deps.ts";
 import Crud from "./Crud.ts";
 import {
-    AuditLogOptionsType,
-    BaseModelType,
-    CrudOptionsType, CrudParamsType, CrudResultType, LogDocumentsType, ObjectType, QueryParamsType, SubItemsType,
-    ValueType,
+    AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, CrudResultType,
+    LogDocumentsType, ObjectType, QueryParamsType, SubItemsType, TaskTypes, ValueType,
 } from "./types.ts";
 import { FieldDescType, isEmptyObject, RelationActionTypes } from "../orm/index.ts";
 
@@ -33,6 +31,33 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
     }
 
     async deleteRecord(): Promise<ResponseMessage> {
+        // check access permission
+        if (this.checkAccess) {
+            const loginStatusRes = await this.checkLoginStatus();
+            if (loginStatusRes.code !== "success") {
+                return loginStatusRes;
+            }
+            let accessRes: ResponseMessage;
+            // loginStatusRes.value.isAdmin
+            if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
+                if (this.docIds && this.docIds.length > 0) {
+                    accessRes = await this.taskPermissionById(TaskTypes.DELETE);
+                    if (accessRes.code !== "success") {
+                        return accessRes;
+                    }
+                } else if (this.queryParams && !isEmptyObject(this.queryParams)) {
+                    accessRes = await this.taskPermissionByParams(TaskTypes.DELETE);
+                    if (accessRes.code !== "success") {
+                        return accessRes;
+                    }
+                } else {
+                    const accessRes = await this.checkTaskAccess(TaskTypes.DELETE);
+                    if (accessRes.code != "success") {
+                        return accessRes;
+                    }
+                }
+            }
+        }
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
