@@ -4,9 +4,9 @@ import {
     newDbMongo, newSaveRecord
 } from "../../src/index.ts";
 import {
-    groupColl, groupCollUpdate, GroupCreateActionParams, GroupModel, GroupUpdateActionParams, GroupUpdateRecordById,
-    GroupUpdateRecordByParam,
-    UpdateGroupById, UpdateGroupByIds, UpdateGroupByParams,
+    categoryColl, categoryCollUpdate, CategoryCreateActionParams, CategoryModel, CategoryUpdateActionParams, CategoryUpdateRecordById,
+    CategoryUpdateRecordByParam,
+    UpdateCategoryById, UpdateCategoryByIds, UpdateCategoryByParams,
 } from "./testData.ts";
 import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
@@ -25,7 +25,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
         appDb      : appDbHandle,
         dbClient   : appDbClient,
         dbName     : appDb.database || "",
-        coll       : groupColl,
+        coll       : categoryColl,
         userInfo   : testUserInfo,
         docIds     : [],
         queryParams: {},
@@ -39,11 +39,11 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should create two new records and return success:",
         testFunc: async () => {
-            crudParams.actionParams = GroupCreateActionParams;
+            crudParams.actionParams = CategoryCreateActionParams;
             crudParams.docIds = []
             crudParams.queryParams = {}
             const recLen = crudParams.actionParams?.length || 0
-            const res = await GroupModel.save(crudParams, crudParamOptions);
+            const res = await CategoryModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>
             const idLen = resValue.recordIds?.length || 0
@@ -57,12 +57,12 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should update two existing records and return success:",
         testFunc: async () => {
-            crudParams.coll = groupCollUpdate;
-            crudParams.actionParams = GroupUpdateActionParams;
+            crudParams.coll = categoryCollUpdate;
+            crudParams.actionParams = CategoryUpdateActionParams;
             crudParams.docIds = []
             crudParams.queryParams = {}
             const recLen = crudParams.actionParams?.length || 0
-            const res = await GroupModel.save(crudParams, crudParamOptions);
+            const res = await CategoryModel.save(crudParams, crudParamOptions);
             console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const recCount = resValue.recordsCount || 0
@@ -74,12 +74,12 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should update a record by Id and return success:",
         testFunc: async () => {
-            crudParams.coll = groupCollUpdate
-            crudParams.actionParams = [GroupUpdateRecordById]
-            crudParams.docIds = [UpdateGroupById]
+            crudParams.coll = categoryCollUpdate
+            crudParams.actionParams = [CategoryUpdateRecordById]
+            crudParams.docIds = [UpdateCategoryById]
             crudParams.queryParams = {}
             const recLen = crudParams.docIds.length;
-            const res = await GroupModel.save(crudParams, crudParamOptions);
+            const res = await CategoryModel.save(crudParams, crudParamOptions);
             console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>;
             const recCount = resValue.recordsCount || 0;
@@ -91,12 +91,12 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should update records by Ids and return success:",
         testFunc: async () => {
-            crudParams.coll = groupCollUpdate
-            crudParams.actionParams = [GroupUpdateRecordById]
-            crudParams.docIds = UpdateGroupByIds
+            crudParams.coll = categoryCollUpdate
+            crudParams.actionParams = [CategoryUpdateRecordById]
+            crudParams.docIds = UpdateCategoryByIds
             crudParams.queryParams = {}
             const recLen = crudParams.docIds.length
-            const res = await GroupModel.save(crudParams, crudParamOptions);
+            const res = await CategoryModel.save(crudParams, crudParamOptions);
             console.log("update-result: ", res);
             const resValue = res.value as unknown as CrudResultType<AuditType>
             const recCount = resValue.recordsCount || 0
@@ -108,10 +108,10 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should update records by query-params and return success:",
         testFunc: async () => {
-            crudParams.coll = groupCollUpdate;
-            crudParams.actionParams = [GroupUpdateRecordByParam]
+            crudParams.coll = categoryCollUpdate;
+            crudParams.actionParams = [CategoryUpdateRecordByParam]
             crudParams.docIds = []
-            crudParams.queryParams = UpdateGroupByParams;
+            crudParams.queryParams = UpdateCategoryByParams;
             const recLen = 0
             const crud = newSaveRecord(crudParams, crudParamOptions);
             const res = await crud.saveRecord();

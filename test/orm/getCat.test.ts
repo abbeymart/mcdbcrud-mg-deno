@@ -4,7 +4,7 @@ import {
     CrudParamsType, GetResultType,
     newDbMongo, AuditType,
 } from "../../src/index.ts";
-import { GetGroupById, GetGroupByIds, GetGroupByParams, groupColl, GroupModel } from "./testData.ts";
+import { GetCategoryById, GetCategoryByIds, GetCategoryByParams, categoryColl, CategoryModel } from "./testData.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
 
 (async () => {
@@ -21,7 +21,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
         appDb      : appDbHandle,
         dbClient   : appDbClient,
         dbName     : appDb.database || "",
-        coll       : groupColl,
+        coll       : categoryColl,
         userInfo   : testUserInfo,
         docIds     : [],
         queryParams: {},
@@ -35,9 +35,9 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should get records by Id and return success:",
         testFunc: async () => {
-            crudParams.docIds = [GetGroupById]
+            crudParams.docIds = [GetCategoryById]
             crudParams.queryParams = {}
-            const res = await GroupModel.get(crudParams, crudParamOptions);
+            const res = await CategoryModel.get(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
@@ -51,9 +51,9 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should get records by Ids and return success:",
         testFunc: async () => {
-            crudParams.docIds = GetGroupByIds;
+            crudParams.docIds = GetCategoryByIds;
             crudParams.queryParams = {};
-            const res = await GroupModel.get(crudParams, crudParamOptions);
+            const res = await CategoryModel.get(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
@@ -68,8 +68,8 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
         name    : "should get records by query-params and return success:",
         testFunc: async () => {
             crudParams.docIds = [];
-            crudParams.queryParams = GetGroupByParams;
-            const res = await GroupModel.get(crudParams, crudParamOptions);
+            crudParams.queryParams = GetCategoryByParams;
+            const res = await CategoryModel.get(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>;
             const recLen = resValue.records?.length || 0;
             const recCount = resValue.stats?.recordsCount || 0;
@@ -83,12 +83,12 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should get all records and return success:",
         testFunc: async () => {
-            crudParams.coll = groupColl
+            crudParams.coll = categoryColl
             crudParams.docIds = []
             crudParams.queryParams = {}
             crudParamOptions.getAllRecords = true
             crudParamOptions.checkAccess = false;
-            const res = await GroupModel.lookup(crudParams, crudParamOptions);
+            const res = await CategoryModel.lookup(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
@@ -102,13 +102,13 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     await mcTest({
         name    : "should get all records by limit/skip(offset) and return success:",
         testFunc: async () => {
-            crudParams.coll = groupColl
+            crudParams.coll = categoryColl
             crudParams.docIds = []
             crudParams.queryParams = {}
             crudParams.skip = 0
             crudParams.limit = 20
             crudParamOptions.getAllRecords = true
-            const res = await GroupModel.get(crudParams, crudParamOptions);
+            const res = await CategoryModel.get(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>
             const recLen = resValue.records?.length || 0
             const recCount = resValue.stats?.recordsCount || 0
