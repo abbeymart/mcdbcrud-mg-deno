@@ -264,7 +264,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             const qParams: QueryParamsType = {_id: {$in: docIds,}};
             const removed = await appDbColl.deleteMany(qParams as Filter<ValueType>);
             if (!removed || removed < 1) {
-                throw new Error(`Unable to delete the specified records [${removed} of ${docIds.length} set to be removed].`)
+                throw new Error(`Unable to delete the specified records [${removed} of ${docIds.length} removed].`);
             }
             // optional, update child-collection-documents for setDefault and setNull/initialize-value?', i.e. if this.deleteSetDefault or this.deleteSetNull
             for await (const currentRec of currentRecs) {
@@ -321,7 +321,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -368,7 +368,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -401,7 +401,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                     value  : deleteResultValue as unknown as ObjectType,
                 });
             }
-            return getResMessage("deleteError", {message: "No record(s) deleted"});
+            return getResMessage("deleteError", {message: errMsg});
         } catch (e) {
             return getResMessage("removeError", {
                 message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,
@@ -422,9 +422,9 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             let errMsg = "";
             if (this.queryParams && !isEmptyObject(this.queryParams)) {
                 const appDbColl = this.appDb.collection(this.coll);
-                const removed = await appDbColl.deleteMany(this.queryParams as Filter<ValueType>);
+                const removed = await appDbColl.deleteMany(this.queryParams);
                 if (!removed || removed < 1) {
-                    throw new Error(`Unable to delete the specified records [${removed} of ${this.currentRecs.length} set to be removed].`)
+                    throw new Error(`Unable to delete the specified records [${removed} of ${currentRecs.length} removed].`)
                 }
                 // optional, update child-collection-documents for setDefault and setNull/initialize-value?, if this.deleteSetDefault or this.deleteSetNull
                 for await (const currentRec of currentRecs) {
@@ -432,7 +432,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         break;
                     }
                     // validate deleted document vs prior-currentDocument
-                    const qParams = {_id: currentRec._id} as Filter<T>;
+                    const qParams = {_id: currentRec._id};
                     const undeletedRec = await appDbColl.findOne(qParams);
                     if (undeletedRec) {
                         continue;
@@ -447,6 +447,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                                 // handle as error
                                 const recErrMsg = "Target model is required to complete the set-default-task";
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                                continue;
                             }
                             const targetDocDesc = cItem.targetModel?.docDesc || {};
                             const targetColl = cItem.targetModel?.collName || cItem.targetColl;
@@ -464,7 +465,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                                 case "object":
                                     targetFieldDesc = targetFieldDesc as FieldDescType
                                     // handle non-default-field
-                                    if (!Object.keys(targetFieldDesc).includes("defaultValue") || !targetFieldDesc.defaultValue) {
+                                    if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
                                         const recErrMsg = "Target/foreignKey default-value is required to complete the set-default task";
                                         errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                                         continue;
@@ -480,7 +481,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]`;
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated]`;
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
@@ -511,7 +512,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                                 case "object":
                                     targetFieldDesc = targetFieldDesc as FieldDescType
                                     // handle non-null-field
-                                    if (!Object.keys(targetFieldDesc).includes("allowNull") || !targetFieldDesc.allowNull) {
+                                    if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
                                         const recErrMsg = "Target/foreignKey allowNull is required to complete the set-null task";
                                         errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                                     }
@@ -526,7 +527,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated].`;
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
@@ -559,7 +560,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                         value  : deleteResultValue as unknown as ObjectType,
                     });
                 } else {
-                    return getResMessage("deleteError", {message: "No record(s) deleted"});
+                    return getResMessage("deleteError", {message: errMsg});
                 }
             } else {
                 return getResMessage("deleteError", {message: "Unable to delete record(s), due to missing queryParams"});

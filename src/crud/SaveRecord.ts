@@ -431,12 +431,11 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 const currentRec = await appDbColl.findOne({_id: new ObjectId(_id)});
                 if (!currentRec || isEmptyObject(currentRec as unknown as ObjectType)) {
                     const recErrorMsg = "Unable to retrieve current record for update.";
-                    errMsg = errMsg ?
-                        `${errMsg} | ${recErrorMsg}` : recErrorMsg;
+                    errMsg = errMsg ? `${errMsg} | ${recErrorMsg}` : recErrorMsg;
                     continue;
                 }
                 const updateResult = await appDbColl.updateOne(
-                    {_id: new ObjectId(_id as string),},
+                    {_id: new ObjectId(_id),},
                     {$set: otherParams,},
                 );
                 updateCount += updateResult.modifiedCount;
@@ -471,7 +470,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                                 errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
@@ -485,11 +484,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             // check if targetModel is defined/specified, required to determine default-action
                             if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                                 // handle as error
-
-                                throw new Error("Target model is required to complete the set-default-task");
+                                const recErrMsg = "Target model is required to complete the set-default-task";
+                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                                continue;
                             }
                             const targetDocDesc = cItem.targetModel?.docDesc || {};
-                            const targetColl = cItem.targetModel.collName || cItem.targetColl;
+                            const targetColl = cItem.targetModel?.collName || cItem.targetColl;
                             // compute default values for the targetFields
                             const defaultDocValue = await this.computeDefaultValues(targetDocDesc);
                             const currentFieldValue = currentRec[sourceField];   // current value of the targetField
@@ -505,8 +505,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                                     targetFieldDesc = targetFieldDesc as FieldDescType
                                     // handle non-default-field
                                     if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
-
-                                        throw new Error("Target/foreignKey default-value is required to complete the set-default task");
+                                        const recErrMsg = "Target/foreignKey default-value is required to complete the set-default task";
+                                        errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                                        continue;
                                     }
                                     break;
                                 default:
@@ -519,8 +520,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-
-                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
+                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
                     } else if (this.updateSetNull) {
@@ -551,8 +552,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                                     targetFieldDesc = targetFieldDesc as FieldDescType
                                     // handle non-null-field
                                     if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
-
-                                        throw new Error("Target/foreignKey allowNull is required to complete the set-null task");
+                                        const recErrMsg = "Target/foreignKey allowNull is required to complete the set-null task";
+                                        errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                                        continue;
                                     }
                                     break;
                                 default:
@@ -565,8 +567,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                             const TargetColl = this.appDb.collection(targetColl);
                             const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                             if (updateRes.modifiedCount !== updateRes.matchedCount) {
-
-                                throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
+                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                             }
                         }
                     }
@@ -654,6 +656,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             );
             const updateCount = updateResult.modifiedCount;
             const updateMatchedCount = updateResult.matchedCount
+            if (updateCount < 1) {
+                throw new Error(`Unable to delete the specified records [${updateCount} of ${currentRecs.length} updated].`);
+            }
             // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
             // from current and new update-field-values
             for (const currentRec of currentRecs) {
@@ -687,7 +692,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -736,7 +741,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -783,7 +788,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -867,6 +872,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             );
             const updateCount = updateResult.modifiedCount;
             const updateMatchedCount = updateResult.matchedCount
+            if (updateCount < 1) {
+                throw new Error(`Unable to delete the specified records [${updateCount} of ${currentRecs.length} updated].`);
+            }
             // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
             // from current and new update-field-values
             for await (const currentRec of currentRecs) {
@@ -900,7 +908,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
@@ -913,8 +921,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         // check if targetModel is defined/specified, required to determine default-action
                         if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
                             // handle as error
-
-                            throw new Error("Target model is required to complete the set-default-task");
+                            const recErrMsg = "Target model is required to complete the set-default-task";
+                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
+                            continue;
                         }
                         const targetDocDesc = cItem.targetModel?.docDesc || {};
                         const targetColl = cItem.targetModel.collName || cItem.targetColl;
@@ -948,8 +957,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-
-                            throw new Error(`Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`)
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
+                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
                 } else if (this.updateSetNull) {
@@ -995,7 +1004,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                         const TargetColl = this.appDb.collection(targetColl);
                         const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
                         if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated]. Transaction aborted.`;
+                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
                             errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
                         }
                     }
