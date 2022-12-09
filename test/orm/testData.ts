@@ -2,7 +2,7 @@
 
 import {
     ActionParamType, QueryParamsType, ModelRelationType, RelationTypes, RelationActionTypes,
-    ModelDescType, BaseModel, DataTypes, ModelCrudOptionsType, newModel, AuditType, ObjectType,
+    ModelDescType, BaseModel, DataTypes, ModelCrudOptionsType, newModel,
     BaseModelType,
 } from "../../src/index.ts"
 import { collections } from "../collections.ts";
@@ -16,7 +16,7 @@ export interface GroupType extends BaseModelType {
 export interface CategoryType extends BaseModelType {
     name: string;
     groupName: string;
-    priority: number;
+    priority?: number;
     iconStyle?: string;
     parentId?: string;
     path?: string;
@@ -26,31 +26,30 @@ export const groupModel: ModelDescType = {
     collName   : collections.GROUPS,
     docDesc    : {
         ...BaseModel,
-        name   : {
+        name: {
             fieldType  : DataTypes.STRING,
-            fieldLength: 20,
+            fieldLength: 25,
             allowNull  : false,
         },
-        ownerId: DataTypes.STRING,
     },
     timeStamp  : true,
     activeStamp: true,
     actorStamp : true,
-}
+};
 
 export const categoryModel: ModelDescType = {
     collName   : collections.CATEGORIES,
     docDesc    : {
         ...BaseModel,
-        name     : {
+        name: {
             fieldType  : DataTypes.STRING,
             fieldLength: 100,
             allowNull  : false,
         },
-        groupId  : {
-            fieldType: DataTypes.MONGODB_ID,
-            allowNull: false,
-        },
+        // groupId  : {
+        //     fieldType: DataTypes.MONGODB_ID,
+        //     allowNull: false,
+        // },
         groupName: {
             fieldType: DataTypes.STRING,
             allowNull: false,
@@ -72,20 +71,9 @@ export const categoryModel: ModelDescType = {
     timeStamp  : true,
     activeStamp: true,
     actorStamp : true,
-}
+};
 
 export const groupRelations: Array<ModelRelationType> = [
-    {
-        sourceColl  : collections.GROUPS,
-        targetColl  : collections.CATEGORIES,
-        sourceField : "_id",
-        targetField : "groupId",
-        targetModel : categoryModel,
-        relationType: RelationTypes.ONE_TO_MANY,
-        foreignField: "groupId",
-        onDelete    : RelationActionTypes.RESTRICT,
-        onUpdate    : RelationActionTypes.NO_ACTION,
-    },
     {
         sourceColl  : collections.GROUPS,
         targetColl  : collections.CATEGORIES,
@@ -97,6 +85,17 @@ export const groupRelations: Array<ModelRelationType> = [
         onDelete    : RelationActionTypes.RESTRICT,
         onUpdate    : RelationActionTypes.CASCADE,
     },
+    // {
+    //     sourceColl  : collections.GROUPS,
+    //     targetColl  : collections.CATEGORIES,
+    //     sourceField : "_id",
+    //     targetField : "groupId",
+    //     targetModel : categoryModel,
+    //     relationType: RelationTypes.ONE_TO_MANY,
+    //     foreignField: "groupId",
+    //     onDelete    : RelationActionTypes.RESTRICT,
+    //     onUpdate    : RelationActionTypes.NO_ACTION,
+    // },
 ];
 
 export const categoryRelations: Array<ModelRelationType> = [
@@ -111,22 +110,19 @@ export const categoryRelations: Array<ModelRelationType> = [
         onDelete    : RelationActionTypes.RESTRICT,
         onUpdate    : RelationActionTypes.NO_ACTION,
     },
-]
+];
 
 export const centralRelations: Array<ModelRelationType> = [
     ...groupRelations,
     ...categoryRelations,
-]
+];
 
 const groupOptions: ModelCrudOptionsType = {
     relations   : centralRelations,
     uniqueFields: [
         ["name"],
     ],
-}
-
-// instantiate model
-export const GroupModel = newModel(groupModel, groupOptions);
+};
 
 const categoryOptions: ModelCrudOptionsType = {
     relations   : centralRelations,
@@ -134,7 +130,11 @@ const categoryOptions: ModelCrudOptionsType = {
         ["name", "groupId",],
         ["name", "groupName",],
     ]
-}
+};
+
+// instantiate model
+export const GroupModel = newModel(groupModel, groupOptions);
+
 // instantiate model
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
@@ -149,55 +149,48 @@ export const categoryCollDelete = "categories_delete";
 
 // TODO: groups collection test-data
 
-// create record(s)
-
 export const GroupCreateRec1: GroupType = {
-    "name": "audits",
+    "name": "User",
 }
 
 export const GroupCreateRec2: GroupType = {
-    "name": "audits",
+    "name": "Location",
 }
 
-
 export const GroupCreateRec3: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Business",
 }
 
 export const GroupCreateRec4: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Industry",
 }
 
 export const GroupCreateRec5: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Locale",
 }
 
 export const GroupCreateRec6: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Tax",
 }
 
 export const GroupCreateRec7: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Income",
 }
 
 export const GroupCreateRec8: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Expense",
 }
 
 export const GroupCreateRec9: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Activity",
 }
 
 export const GroupCreateRec10: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    name: "Project",
+}
+
+export const GroupCreateRecNameConstraint: GroupType = {
+    name: "Group name length greater than the model specified length",
 }
 
 export const GroupCreateActionParams: Array<GroupType> = [
@@ -213,32 +206,35 @@ export const GroupCreateActionParams: Array<GroupType> = [
     GroupCreateRec10,
 ]
 
-
+// change Expense to Expenses
 export const GroupUpdateRec1: GroupType = {
-    _id : "638fd835c77947991e7f7e14",
-    name: "",
+    _id : "",
+    name: "Expenses",
 }
 
+// change Income to Incomes
 export const GroupUpdateRec2: GroupType = {
-    _id : "638fd835c77947991e7f7e15",
-    name: "",
+    _id : "",
+    name: "Incomes",
 }
 
-export const GroupUpdateActionParams: Array<AuditType> = [
+export const GroupUpdateActionParams: Array<GroupType> = [
     GroupUpdateRec1,
     GroupUpdateRec2,
 ]
 
 // TODO: update and delete params, by ids / queryParams
 
-export const GroupUpdateRecordById: ObjectType = {
-    "_id" : "638fd873a02862d754fa0247",
+// change Project to Projects
+export const GroupUpdateRecordById: GroupType = {
+    "_id" : "",
     "name": "Group Name",
 }
 
-export const GroupUpdateRecordByParam: ActionParamType = {
-    "_id" : "638fd873a02862d754fa0248",
-    "name": "Updated Group Name",
+
+// change Location to Locations
+export const GroupUpdateRecordByParam: GroupType = {
+    "name": "Locations",
 }
 
 export const UpdateGroupById = "638fd835c77947991e7f7e11"
@@ -249,7 +245,7 @@ export const UpdateGroupByIds: Array<string> = [
 ]
 
 export const UpdateGroupByParams: QueryParamsType = {
-    "logType": "read",
+    "logType": "Location",
 }
 
 export const GetGroupById = "638fd565c97d023503c6a0d8"
@@ -374,14 +370,14 @@ export const CategoryUpdateRec2: CategoryType = {
     priority : 100,
 }
 
-export const CategoryUpdateActionParams: Array<AuditType> = [
+export const CategoryUpdateActionParams: Array<CategoryType> = [
     CategoryUpdateRec1,
     CategoryUpdateRec2,
 ]
 
 // TODO: update and delete params, by ids / queryParams
 
-export const CategoryUpdateRecordById: ObjectType = {
+export const CategoryUpdateRecordById: ActionParamType = {
     "_id" : "638fd873a02862d754fa0247",
     "name": "Category Name",
 }
