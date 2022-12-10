@@ -214,7 +214,8 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             if (sourceField.toLowerCase().endsWith("id")) {
                 const sourceFieldValues = this.currentRecs.map((item) => {
                     const idValue = (item as unknown as ObjectType)[sourceField];
-                    return new ObjectId(idValue as string);
+                    return (idValue !== "" && (idValue as string).length <= 24) ? new ObjectId(idValue as string) :
+                        idValue;
                 });
                 query[targetField] = {
                     $in: sourceFieldValues,
