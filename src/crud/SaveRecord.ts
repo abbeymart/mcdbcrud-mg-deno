@@ -360,7 +360,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         // insert/create record(s) and log in audit-collection
         try {
             // insert/create multiple documents and audit-log
-            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             const insertResult = await appDbColl.insertMany(this.createItems);
             // perform cache and audi-log tasks
@@ -394,7 +393,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         } catch (e) {
             return getResMessage("insertError", {
-                message: `Error inserting/creating new record(s): ${e.message ? e.message : ""}`,
+                message: e.message ? `${e.message}`: "Error inserting/creating new record(s)",
             });
         }
     }
@@ -428,7 +427,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             let updateMatchedCount = 0;
             let errMsg = "";
             // update multiple documents
-            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             for await (const item of this.updateItems) {
                 // destruct _id /other attributes
@@ -610,11 +608,11 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 });
             }
             return getResMessage("updateError", {
-                message: "No documents updated. Please retry.",
+                message: `No documents updated. Please retry. ${errMsg}`,
             });
         } catch (e) {
             return getResMessage("updateError", {
-                message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                message: e.message ? `${e.message}` : "Error updating record(s):",
                 value  : e,
             });
         }
@@ -649,7 +647,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             // destruct _id /other attributes
             const {_id, ...otherParams} = this.actionParams[0];
             // update multiple documents
-            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             const docIds = this.docIds.map(it => new ObjectId(it));
             // update document by-ID to ensure/maintain model-constraint...
@@ -662,7 +659,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 // check document/record(s) uniqueness
                 const existRes = await this.checkRecExist(this.actionParams, [currentRec]);
                 if (existRes.code !== "success") {
-                    updateErrMsg = updateErrMsg? `${updateErrMsg} |  ${existRes.message}` : `${existRes.message}`;
+                    updateErrMsg = updateErrMsg ? `${updateErrMsg} |  ${existRes.message}` : `${existRes.message}`;
                     continue;
                 }
                 updateResult = await appDbColl.updateOne(
@@ -673,7 +670,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 updateMatchedCount += updateResult.matchedCount
             }
             if (updateCount < 1) {
-                throw new Error(`Unable to delete the specified records [${updateCount} of ${currentRecs.length} updated].`);
+                throw new Error(`Update Error: [${updateCount} of ${currentRecs.length} updated]. ${updateErrMsg}`);
             }
             // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
             // from current and new update-field-values
@@ -844,7 +841,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         } catch (e) {
             return getResMessage("updateError", {
-                message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                message: e.message ? `${e.message}` : "Error updating record(s):",
                 value  : e,
             });
         }
@@ -880,7 +877,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             return this.updateRecordById();
         } catch (e) {
             return getResMessage("updateError", {
-                message: `Error updating record(s): ${e.message ? e.message : ""}`,
+                message: e.message ? `${e.message}` : "Error updating record(s):",
                 value  : e,
             });
         }

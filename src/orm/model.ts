@@ -208,7 +208,6 @@ export class Model<T extends BaseModelType> {
 
     // computeFieldValueType computes the document-field-value-type, as DataTypes.
     computeFieldValueType(val: ValueType): DataTypes {
-        // console.log("field-value: ", val);
         let computedType: DataTypes;
         try {
             if (Array.isArray(val)) {
@@ -392,7 +391,6 @@ export class Model<T extends BaseModelType> {
                     case "object":
                         // validate field-value-type,
                         fieldDesc = fieldDesc as FieldDescType;
-                        // console.log("type-compare: ", fieldDesc, docValueTypes[key]);
                         if (fieldValue && docValueTypes[key] !== fieldDesc.fieldType) {
                             errors[key] = fieldDesc.validateMessage ? fieldDesc.validateMessage :
                                 `Invalid Type for: ${key}. Expected ${fieldDesc.fieldType}, Got ${docValueTypes[key]}`;
@@ -568,7 +566,7 @@ export class Model<T extends BaseModelType> {
     async save(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         try {
             // model specific params
-            params.coll = this.modelCollName;
+            params.coll = params.coll || this.modelCollName;
             params.docDesc = this.modelDocDesc;
             options.uniqueFields = this.modelUniqueFields;
             this.taskType = TaskTypes.UNKNOWN;  // CREATE or UPDATE task-type
@@ -585,11 +583,9 @@ export class Model<T extends BaseModelType> {
             const docValueTypes = this.computeDocValueType(params.actionParams[0]);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
             const actParams: Array<T> = [];
-            // console.log("actionParams: ", params.actionParams);
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
                 const modelDocValue = await this.setDefaultValues(docValue);
-                // console.log("modelValue-defaults: ", modelDocValue);
                 // validate actionParam-item (docValue) field-values
                 const validateRes = await this.validateDocValue(modelDocValue, docValueTypes);
                 if (!validateRes.ok || !isEmptyObject(validateRes.errors)) {
@@ -618,7 +614,7 @@ export class Model<T extends BaseModelType> {
     async get(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
         try {
             // model specific params
-            params.coll = this.modelCollName;
+            params.coll = params.coll || this.modelCollName;
             params.docDesc = this.modelDocDesc;
             params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
@@ -637,7 +633,7 @@ export class Model<T extends BaseModelType> {
         // get stream of document(s), returning a cursor or error
         try {
             // model specific params
-            params.coll = this.modelCollName;
+            params.coll = params.coll || this.modelCollName;
             params.docDesc = this.modelDocDesc;
             params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
@@ -656,7 +652,7 @@ export class Model<T extends BaseModelType> {
         // get lookup documents based on queryParams and model-relations definition
         try {
             // model specific params
-            params.coll = this.modelCollName;
+            params.coll = params.coll || this.modelCollName;
             params.docDesc = this.modelDocDesc;
             params.taskType = TaskTypes.READ;
             this.taskType = params.taskType;
@@ -677,7 +673,7 @@ export class Model<T extends BaseModelType> {
         // validate queryParams based on model/docDesc
         try {
             // model specific params
-            params.coll = this.modelCollName;
+            params.coll = params.coll || this.modelCollName;
             params.docDesc = this.modelDocDesc;
             params.taskType = TaskTypes.DELETE;
             this.taskType = params.taskType;
