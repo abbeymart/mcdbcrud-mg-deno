@@ -16,7 +16,7 @@ import {
 } from "./types.ts";
 import { AuditLog, newAuditLog } from "../auditlog/index.ts";
 import {
-    DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType
+    DataTypes, DefaultValueType, DocDescType, FieldDescType, isEmptyObject, ModelRelationType
 } from "../orm/index.ts";
 
 export class Crud<T extends BaseModelType> {
@@ -224,9 +224,10 @@ export class Crud<T extends BaseModelType> {
     }
 
     // checkRecExist method checks if items/documents exist: document uniqueness
-    async checkRecExist(actionParams: ActionParamsType<T>): Promise<ResponseMessage> {
+    async checkRecExist(actionParams: ActionParamsType<T>, currentRecs: Array<T> = []): Promise<ResponseMessage> {
         try {
-            const existParams = this.computeExistParams(actionParams);
+            const existParams = this.computeExistParams(actionParams, currentRecs);
+            console.log("existParams: ", existParams);
             // check if existParams condition is specified
             if (existParams.length < 1 || this.existParams.length < 1) {
                 return getResMessage("success", {
@@ -354,7 +355,7 @@ export class Crud<T extends BaseModelType> {
     }
 
     // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
-    computeExistParam(actionParam: T): ExistParamsType {
+    computeExistParam(actionParam: T, currentRec= {}): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
         if (this.uniqueFields.length < 1) {
@@ -368,9 +369,9 @@ export class Crud<T extends BaseModelType> {
                 if (field === "_id") {
                     continue;
                 }
-                // set unique item value
+                // set unique item value for the new/updated actionParam/document
                 const fieldValue = (actionParam as unknown as ObjectType)[field];
-                if (field.toLowerCase().endsWith("id") && fieldValue !== "" &&
+                if (field.toLowerCase().endsWith("id") && (fieldValue as string) !== "" &&
                     (fieldValue as string).length <= 24) {
                     uniqueObj[field] = new ObjectId(fieldValue as string);
                 } else {
@@ -378,10 +379,22 @@ export class Crud<T extends BaseModelType> {
                 }
             }
             // add uniqueness object to the existParams, to exclude the existing document(update-task)
-            if (actionParam["_id"] && actionParam["_id"] !== "" && (actionParam["_id"]).length <= 24) {
+            if(currentRec && !isEmptyObject(currentRec as ObjectType)) {
+                const rec = currentRec as ObjectType;
+                const recId = (rec["_id"])?.toString() ||"";
+                if (recId && recId !== "" && recId.length <= 24) {
+                    existParam.push({
+                        _id: {
+                            $ne: new ObjectId(recId),
+                        },
+                        ...uniqueObj,
+                    });
+                }
+            } else if (actionParam["_id"] && (actionParam["_id"]).toString() !== "" && (actionParam["_id"]).toString().length <= 24) {
+                const recId = (actionParam["_id"]).toString();
                 existParam.push({
                     _id: {
-                        $ne: new ObjectId(actionParam["_id"] as string),
+                        $ne: new ObjectId(recId),
                     },
                     ...uniqueObj,
                 });
@@ -396,7 +409,7 @@ export class Crud<T extends BaseModelType> {
     }
 
     // computeExistParams compute the query-object(s) for checking create/update documents uniqueness based on model-unique-fields constraints.
-    computeExistParams(actionParams: ActionParamsType<T>): ActionExistParamsType {
+    computeExistParams(actionParams: ActionParamsType<T>, currentRecs: Array<T> = []): ActionExistParamsType {
         // set the existParams for create or update action to determine documents uniqueness
         const existParams: ActionExistParamsType = [];
         if (this.uniqueFields.length < 1) {
@@ -404,7 +417,8 @@ export class Crud<T extends BaseModelType> {
             return [];
         }
         for (const actParam of actionParams) {
-            const existParam = this.computeExistParam(actParam);
+            const currentRec = currentRecs.find(rec => rec["_id"] === actParam["_id"]);
+            const existParam = this.computeExistParam(actParam, currentRec);
             if (existParam.length > 0) {
                 existParams.push(existParam);
             }

@@ -139,11 +139,11 @@ export const GroupModel = newModel(groupModel, groupOptions);
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
 export const groupColl = collections.GROUPS;
-export const groupCollUpdate = "groups_update";
-export const groupCollDelete = "groups_delete";
+export const groupCollUpdate = "groupsUpdate";
+export const groupCollDelete = "groupsDelete";
 export const categoryColl = collections.CATEGORIES;
-export const categoryCollUpdate = "categories_update";
-export const categoryCollDelete = "categories_delete";
+export const categoryCollUpdate = "categoriesUpdate";
+export const categoryCollDelete = "categoriesDelete";
 
 // export const UserId = "c85509ac-7373-464d-b667-425bb59b5738"
 

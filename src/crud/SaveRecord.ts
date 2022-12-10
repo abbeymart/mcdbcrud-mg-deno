@@ -351,12 +351,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         if (existRes.code !== "success") {
             return existRes;
         }
-
-        if (this.isRecExist) {
-            return getResMessage("recExist", {
-                message: this.recExistMessage,
-            });
-        }
         // control access to security-sensitive collections - optional
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {
@@ -366,6 +360,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         // insert/create record(s) and log in audit-collection
         try {
             // insert/create multiple documents and audit-log
+            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             const insertResult = await appDbColl.insertMany(this.createItems);
             // perform cache and audi-log tasks
@@ -428,17 +423,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             if (existRes.code !== "success") {
                 return existRes;
             }
-
-            if (this.isRecExist) {
-                return getResMessage("recExist", {
-                    message: this.recExistMessage,
-                });
-            }
             // check/validate update/upsert command for multiple documents
             let updateCount = 0;
             let updateMatchedCount = 0;
             let errMsg = "";
             // update multiple documents
+            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             for await (const item of this.updateItems) {
                 // destruct _id /other attributes
@@ -656,37 +646,39 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
-
-            // check document/record(s) uniqueness
-            const existRes = await this.checkRecExist(currentRecs);
-            if (existRes.code !== "success") {
-                return existRes;
-            }
-
-            if (this.isRecExist) {
-                return getResMessage("recExist", {
-                    message: this.recExistMessage,
-                });
-            }
-
             // destruct _id /other attributes
             const {_id, ...otherParams} = this.actionParams[0];
             // update multiple documents
+            console.log("collection: ", this.coll);
             const appDbColl = this.appDb.collection(this.coll);
             const docIds = this.docIds.map(it => new ObjectId(it));
-            const updateResult = await appDbColl.updateMany(
-                {_id: {$in: docIds,}},
-                {$set: otherParams,},
-            );
-            const updateCount = updateResult.modifiedCount;
-            const updateMatchedCount = updateResult.matchedCount
+            // update document by-ID to ensure/maintain model-constraint...
+            let updateCount = 0;
+            let updateMatchedCount = 0;
+            let updateResult;
+            let updateErrMsg = "";
+            for (const docId of docIds) {
+                const currentRec = await appDbColl.findOne({_id: docId}) as T;
+                // check document/record(s) uniqueness
+                const existRes = await this.checkRecExist(this.actionParams, [currentRec]);
+                if (existRes.code !== "success") {
+                    updateErrMsg = updateErrMsg? `${updateErrMsg} |  ${existRes.message}` : `${existRes.message}`;
+                    continue;
+                }
+                updateResult = await appDbColl.updateOne(
+                    {_id: docId},
+                    {$set: otherParams,},
+                );
+                updateCount += updateResult.modifiedCount;
+                updateMatchedCount += updateResult.matchedCount
+            }
             if (updateCount < 1) {
                 throw new Error(`Unable to delete the specified records [${updateCount} of ${currentRecs.length} updated].`);
             }
             // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
             // from current and new update-field-values
             for (const currentRec of currentRecs) {
-                if (this.childRelations.length < 1 || updateResult.modifiedCount < 1) {
+                if (this.childRelations.length < 1 || (updateResult && updateResult.modifiedCount < 1)) {
                     break;
                 }
                 if (this.updateCascade) {
@@ -877,209 +869,15 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         }
 
         try {
-            let errMsg = "";
             // check current documents prior to update
             const currentRecRes = await this.getCurrentRecords("queryParams");
             if (currentRecRes.code !== "success") {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
-
-            // check document/record(s) uniqueness
-            const existRes = await this.checkRecExist(currentRecs);
-            if (existRes.code !== "success") {
-                return existRes;
-            }
-
-            if (this.isRecExist) {
-                return getResMessage("recExist", {
-                    message: this.recExistMessage,
-                });
-            }
-
-            // destruct _id /other attributes
-            const item = this.actionParams[0];
-            const {_id, ...otherParams} = item;
-            const appDbColl = this.appDb.collection(this.coll);
-            // include item stamps: userId and date
-            otherParams.updatedBy = this.userId;
-            otherParams.updatedAt = new Date();
-            const updateResult = await appDbColl.updateMany(
-                this.queryParams,
-                {$set: otherParams},
-            );
-            const updateCount = updateResult.modifiedCount;
-            const updateMatchedCount = updateResult.matchedCount
-            if (updateCount < 1) {
-                throw new Error(`Unable to delete the specified records [${updateCount} of ${currentRecs.length} updated].`);
-            }
-            // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
-            // from current and new update-field-values
-            for await (const currentRec of currentRecs) {
-                if (this.childRelations.length < 1 || updateResult.modifiedCount < 1) {
-                    break;
-                }
-                if (this.updateCascade) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine update-cascade-action
-                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                            // handle as error
-                            const recErrMsg = "Target model is required to complete the update-cascade-task";
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            continue;
-                        }
-                        // const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;   // current value
-                        const newFieldValue = (item as unknown as ObjectType)[sourceField] || null;         // new value (set-value)
-                        if (currentFieldValue === newFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = newFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                        }
-                    }
-                } // optional, update child-docs for setDefault and initializeValues, if this.updateSetDefault or this.updateSetNull
-                else if (this.updateSetDefault) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_DEFAULT);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                            // handle as error
-                            const recErrMsg = "Target model is required to complete the set-default-task";
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            continue;
-                        }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        // compute default values for the targetFields
-                        const defaultDocValue = await this.computeDefaultValues(targetDocDesc);
-                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField];   // current value of the targetField
-                        const defaultFieldValue = defaultDocValue[targetField] || null;    // new value (default-value) of the targetField
-                        if (currentFieldValue === defaultFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField default value | check if setDefault is permissible for the targetField
-                        let targetFieldDesc = targetDocDesc[targetField];
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-default-field
-                                if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
-                                    const recErrMsg = "Target/foreignKey default-value is required to complete the set-default task";
-                                    errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                    continue;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = defaultFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                        }
-                    }
-                } else if (this.updateSetNull) {
-                    const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.SET_NULL);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                            // handle as error
-                            const recErrMsg = "Target model is required to complete the set-null-task";
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            continue;
-                        }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                        const initializeDocValue = this.computeInitializeValues(targetDocDesc)
-                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField];  // current value of the targetField
-                        const nullFieldValue = initializeDocValue[targetField] || null; // new value (default-value) of the targetField
-                        if (currentFieldValue === nullFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField null value | check if allowNull is permissible for the targetField
-                        let targetFieldDesc = targetDocDesc[targetField];
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-null-field
-                                if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
-                                    const recErrMsg = "Target/foreignKey allowNull is required to complete the set-null task";
-                                    errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                    continue;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: QueryParamsType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = nullFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                        }
-                    }
-                }
-            }
-            // perform cache and audi-log tasks
-            if (updateCount > 0) {
-                // delete cache
-                await deleteHashCache({key: this.cacheKey, hash: this.coll, by: "key"});
-                // check the audit-log settings - to perform audit-log
-                let logRes: ResponseMessage = {code: "unknown", message: "", value: {}, resCode: 0, resMessage: ""};
-                if (this.logUpdate || this.logCrud) {
-                    const logDocuments: LogDocumentsType = {
-                        collDocuments: this.currentRecs,
-                    }
-                    const newLogDocuments: LogDocumentsType = {
-                        queryParam: otherParams,
-                    }
-                    const logParams: AuditLogOptionsType = {
-                        collName        : this.coll,
-                        collDocuments   : logDocuments,
-                        newCollDocuments: newLogDocuments,
-                    }
-                    logRes = await this.transLog.updateLog(this.userId, logParams);
-                }
-                const crudResult: CrudResultType<T> = {
-                    recordsCount: updateCount,
-                    logRes      : logRes,
-                };
-                return getResMessage("success", {
-                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
-                    value  : crudResult as unknown as ObjectType,
-                });
-            }
-            return getResMessage("updateError", {
-                message: "No documents updated. Please retry.",
-            });
+            // set docIds from queryParams result
+            this.docIds = currentRecs.map(rec => (rec["_id"])?.toString()) as Array<string>;
+            return this.updateRecordById();
         } catch (e) {
             return getResMessage("updateError", {
                 message: `Error updating record(s): ${e.message ? e.message : ""}`,

@@ -6,7 +6,7 @@
  */
 
 import validator from "npm:validator";
-import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, ObjectId, Document, } from "../../deps.ts";
+import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, Document, } from "../../deps.ts";
 
 import {
     ComputedMethodsType,
@@ -24,11 +24,9 @@ import {
     ValueToDataTypes,
 } from "./types.ts";
 import {
-    ActionExistParamsType,
     BaseModelType,
     CrudOptionsType,
-    CrudParamsType, ExistParamItemType,
-    ExistParamsType,
+    CrudParamsType,
     newDeleteRecord,
     newGetRecord,
     newGetRecordStream,
@@ -158,57 +156,6 @@ export class Model<T extends BaseModelType> {
         return childRelations.length > 0 ? childRelations.map(rel => rel.targetColl) : [];
     }
 
-    // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
-    // TODO: move to crud-class
-    computeExistParam(actionParam: T): ExistParamsType {
-        // set the existParams for create or update action to determine document uniqueness
-        const existParam: ExistParamsType = [];
-        for (const fields of this.modelUniqueFields) {
-            // compute the uniqueness object
-            const uniqueObj: ExistParamItemType = {};
-            for (const field of fields) {
-                // exclude primary/unique _id field/key
-                if (field === "_id") {
-                    continue;
-                }
-                // set unique item value
-                const fieldValue = (actionParam as unknown as ObjectType)[field];
-                if (field.toLowerCase().endsWith("id") && fieldValue !== "" &&
-                    (fieldValue as string).length <= 24) {
-                    uniqueObj[field] = new ObjectId(fieldValue as string);
-                } else {
-                    uniqueObj[field] = fieldValue;
-                }
-            }
-            // add uniqueness object to the existParams, to exclude the existing document(update-task)
-            if (actionParam["_id"] && actionParam["_id"] !== "" && (actionParam["_id"]).length <= 24) {
-                existParam.push({
-                    _id: {
-                        $ne: new ObjectId(actionParam["_id"] as string),
-                    },
-                    ...uniqueObj,
-                });
-            } else {
-                // add uniqueness object to the existParams, to exclude the existing document(create-task)
-                existParam.push({
-                    ...uniqueObj,
-                });
-            }
-        }
-        return existParam;
-    }
-
-    // computeExistParams compute the query-object(s) for checking create/update documents uniqueness based on model-unique-fields constraints.
-    computeExistParams(actionParams: Array<T>): ActionExistParamsType {
-        // set the existParams for create or update action to determine documents uniqueness
-        const existParams: ActionExistParamsType = [];
-        for (const actParam of actionParams) {
-            const existParam = this.computeExistParam(actParam);
-            existParams.push(existParam);
-        }
-        return existParams;
-    }
-
     // computeRequiredFields computes the non-null fields, i.e. allowNull === false.
     computeRequiredFields(): Array<string> {
         const requiredFields: Array<string> = [];
@@ -261,7 +208,7 @@ export class Model<T extends BaseModelType> {
 
     // computeFieldValueType computes the document-field-value-type, as DataTypes.
     computeFieldValueType(val: ValueType): DataTypes {
-        console.log("field-value: ", val);
+        // console.log("field-value: ", val);
         let computedType: DataTypes;
         try {
             if (Array.isArray(val)) {
@@ -345,7 +292,6 @@ export class Model<T extends BaseModelType> {
 
     // computeDocValueType computes the document-field-value-types, as DataTypes.
     computeDocValueType(doc: T): ValueToDataTypes {
-        console.log("doc-value: ", doc);
         const computedTypes: ValueToDataTypes = {};
         try {
             for (const [key, val] of Object.entries(doc)) {
@@ -446,7 +392,7 @@ export class Model<T extends BaseModelType> {
                     case "object":
                         // validate field-value-type,
                         fieldDesc = fieldDesc as FieldDescType;
-                        console.log("type-compare: ", fieldDesc, docValueTypes[key]);
+                        // console.log("type-compare: ", fieldDesc, docValueTypes[key]);
                         if (fieldValue && docValueTypes[key] !== fieldDesc.fieldType) {
                             errors[key] = fieldDesc.validateMessage ? fieldDesc.validateMessage :
                                 `Invalid Type for: ${key}. Expected ${fieldDesc.fieldType}, Got ${docValueTypes[key]}`;
@@ -639,11 +585,11 @@ export class Model<T extends BaseModelType> {
             const docValueTypes = this.computeDocValueType(params.actionParams[0]);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
             const actParams: Array<T> = [];
-            console.log("actionParams: ", params.actionParams);
+            // console.log("actionParams: ", params.actionParams);
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
                 const modelDocValue = await this.setDefaultValues(docValue);
-                console.log("modelValue-defaults: ", modelDocValue);
+                // console.log("modelValue-defaults: ", modelDocValue);
                 // validate actionParam-item (docValue) field-values
                 const validateRes = await this.validateDocValue(modelDocValue, docValueTypes);
                 if (!validateRes.ok || !isEmptyObject(validateRes.errors)) {
