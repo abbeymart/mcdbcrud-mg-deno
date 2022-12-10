@@ -6,7 +6,7 @@ import {
 import {
     groupCollUpdate, GroupModel,
     GroupUpdateRecordByParam, GroupType,
-    UpdateGroupById, GroupUpdateActionParams, GroupUpdateRecordById, UpdateGroupByParams,
+    UpdateGroupById, GroupUpdateActionParams, GroupUpdateRecordById, UpdateGroupByParams, UpdateGroupByIds,
 } from "./testData.ts";
 import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
@@ -88,6 +88,24 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     });
 
     await mcTest({
+        name    : "should return unique-error for updating documents by Ids:",
+        testFunc: async () => {
+            crudParams.coll = groupCollUpdate
+            crudParams.actionParams = [GroupUpdateRecordById]
+            crudParams.docIds = UpdateGroupByIds
+            crudParams.queryParams = {}
+            const recLen = crudParams.docIds.length;
+            const res = await GroupModel.save(crudParams, crudParamOptions);
+            console.log("update-result: ", res);
+            const resValue = res.value as unknown as CrudResultType<GroupType>;
+            const recCount = resValue.recordsCount || 0;
+            assertEquals(res.code === "recordExist" || res.code === "updateError", true, `create-task should return recordExist`);
+            assertEquals(res.code !== "success", true, `create-task should return existError or updateError`);
+            assertEquals(recCount < recLen, true, `response-value-recordsCount < ${recLen} should be true`);
+        }
+    });
+
+    await mcTest({
         name    : "should return error updating a non-unique/existing document:",
         testFunc: async () => {
             crudParams.coll = groupCollUpdate
@@ -97,7 +115,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
             const res = await GroupModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
             assertEquals(res.code === "recordExist" || res.code === "updateError", true, `create-task should return recordExist`);
-            assertEquals(res.code !== "success", true, `create-task should return existError`);
+            assertEquals(res.code !== "success", true, `create-task should return existError or updateError`);
         }
     });
 
