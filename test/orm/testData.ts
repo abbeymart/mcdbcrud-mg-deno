@@ -208,13 +208,19 @@ export const GroupCreateActionParams: Array<GroupType> = [
 
 // change Expense to Expenses
 export const GroupUpdateRec1: GroupType = {
-    _id : "",
+    _id : "6393ef7f9a2eeb643b67e7db",
     name: "Expenses",
 }
 
 // change Income to Incomes
 export const GroupUpdateRec2: GroupType = {
-    _id : "",
+    _id : "6393ef7f9a2eeb643b67e7da",
+    name: "Incomes",
+}
+
+// update name: User to name: Incomes (exists)
+export const GroupUpdateRecExist: GroupType = {
+    _id : "6393ef7f9a2eeb643b67e7d4",
     name: "Incomes",
 }
 
@@ -227,17 +233,20 @@ export const GroupUpdateActionParams: Array<GroupType> = [
 
 // change Project to Projects
 export const GroupUpdateRecordById: GroupType = {
-    "_id" : "",
-    "name": "Group Name",
+    // "_id" : "6393ef7f9a2eeb643b67e7d4",
+    "name": "Users",
 }
 
 
 // change Location to Locations
 export const GroupUpdateRecordByParam: GroupType = {
-    "name": "Locations",
+    "name"   : "Locations",
+    updatedAt: new Date("2022-12-10T02:58:59.188Z"),
 }
 
-export const UpdateGroupById = "638fd835c77947991e7f7e11"
+export const UpdateGroupById = "6393ef7f9a2eeb643b67e7d4"
+
+// ??
 export const UpdateGroupByIds: Array<string> = [
     "638fd835c77947991e7f7e11",
     "638fd835c77947991e7f7e12",
@@ -245,17 +254,19 @@ export const UpdateGroupByIds: Array<string> = [
 ]
 
 export const UpdateGroupByParams: QueryParamsType = {
-    "logType": "Location",
+    "name": "Location",
 }
 
-export const GetGroupById = "638fd565c97d023503c6a0d8"
-export const GetGroupByIds = ["638fd565c97d023503c6a0d8",
-    "638fd565c97d023503c6a0d9"] as Array<string>
+export const GetGroupById = "6393ef7f9a2eeb643b67e7d4"
+export const GetGroupByIds = ["6393ef7f9a2eeb643b67e7d4",
+    "6393ef7f9a2eeb643b67e7d5"] as Array<string>
 export const GetGroupByParams: QueryParamsType = {
-    "logType": "create",
+    "name": "Locale",
 }
 
-export const DeleteGroupById = "638fd62cd7d613895979da27"
+export const DeleteGroupById = "6393ef7f9a2eeb643b67e7d9";
+
+// ??
 export const DeleteGroupByIds: Array<string> = [
     "638fd62cd7d613895979da28",
     "638fd62cd7d613895979da29",
@@ -263,6 +274,7 @@ export const DeleteGroupByIds: Array<string> = [
     "638fd62cd7d613895979da2b",
 ]
 
+// ??
 export const DeleteGroupByParams: QueryParamsType = {
     "logType": "read",
 }

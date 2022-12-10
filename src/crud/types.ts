@@ -328,6 +328,7 @@ export interface CrudOptionsType {
     childColls?: Array<string>;
     parentRelations?: Array<ModelRelationType>;
     childRelations?: Array<ModelRelationType>;
+    uniqueFields?: Array<Array<string>>;
     recursiveDelete?: boolean;
     checkAccess?: boolean
     auditColl?: string;

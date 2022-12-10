@@ -8,11 +8,15 @@
 import { Database, Document, Filter, getResMessage, MongoClient, ObjectId, ResponseMessage } from "../../deps.ts";
 import {
     ActionExistParamsType, ActionParamType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType,
+    ExistParamItemType,
+    ExistParamsType,
     FieldValueTypes, ObjectType, OkResponse, ProjectParamsType, QueryParamsType, RoleFuncType, RoleServiceResponseType,
     SortParamsType, SubItemsType, TaskTypes, UserInfoType, ValueType,
 } from "./types.ts";
 import { AuditLog, newAuditLog } from "../auditlog/index.ts";
-import { DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType } from "../orm/index.ts";
+import {
+    DataTypes, DefaultValueType, DocDescType, FieldDescType, isEmptyObject, ModelRelationType
+} from "../orm/index.ts";
 
 export class Crud<T extends BaseModelType> {
     protected params: CrudParamsType<T>;
@@ -26,7 +30,7 @@ export class Crud<T extends BaseModelType> {
     protected docIds: Array<string>;       // to capture string-id | ObjectId
     protected actionParams: Array<T>;
     protected queryParams: QueryParamsType;
-    protected readonly existParams: ActionExistParamsType;
+    protected existParams: ActionExistParamsType;
     protected readonly projectParams: ProjectParamsType;
     protected readonly sortParams: SortParamsType;
     protected taskType: TaskTypes | string;
@@ -79,6 +83,7 @@ export class Crud<T extends BaseModelType> {
     protected readonly childColls: Array<string>;
     protected readonly parentRelations: Array<ModelRelationType>;
     protected readonly childRelations: Array<ModelRelationType>;
+    protected readonly uniqueFields: Array<Array<string>>;
     protected readonly fieldSeparator: string;
     protected readonly queryFieldType: string;
     protected readonly appDbs: Array<string>;
@@ -122,6 +127,7 @@ export class Crud<T extends BaseModelType> {
         this.childColls = options && options.childColls ? options.childColls : [];
         this.parentRelations = options && options.parentRelations ? options.parentRelations : [];
         this.childRelations = options && options.childRelations ? options.childRelations : [];
+        this.uniqueFields = options && options.uniqueFields ? options.uniqueFields : [];
         this.recursiveDelete = options && options.recursiveDelete !== undefined ? options.recursiveDelete : false;
         this.checkAccess = options && options.checkAccess !== undefined ? options.checkAccess : false;
         this.auditColl = options && options.auditColl ? options.auditColl : "audits";
@@ -219,6 +225,7 @@ export class Crud<T extends BaseModelType> {
     // checkRecExist method checks if items/documents exist: document uniqueness
     async checkRecExist(): Promise<ResponseMessage> {
         try {
+            this.computeExistParams();
             // check if existParams condition is specified
             if (this.existParams.length < 1) {
                 return getResMessage("success", {
@@ -343,6 +350,76 @@ export class Crud<T extends BaseModelType> {
                 message: "Error retrieving current document/record(s)",
             });
         }
+    }
+
+    // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
+    // TODO: move to crud-class
+    computeExistParam(actionParam: T): ExistParamsType {
+        // set the existParams for create or update action to determine document uniqueness
+        const existParam: ExistParamsType = [];
+        if (this.uniqueFields.length < 1) {
+            return [];
+        }
+        for (const fields of this.uniqueFields) {
+            // compute the uniqueness object
+            const uniqueObj: ExistParamItemType = {};
+            for (const field of fields) {
+                // exclude primary/unique _id field/key
+                if (field === "_id") {
+                    continue;
+                }
+                // set unique item value
+                const fieldValue = (actionParam as unknown as ObjectType)[field];
+                if (field.toLowerCase().endsWith("id") && fieldValue !== "" &&
+                    (fieldValue as string).length <= 24) {
+                    uniqueObj[field] = new ObjectId(fieldValue as string);
+                } else {
+                    uniqueObj[field] = fieldValue;
+                }
+            }
+            // add uniqueness object to the existParams, to exclude the existing document(update-task)
+            if (actionParam["_id"] && actionParam["_id"] !== "" && (actionParam["_id"]).length <= 24) {
+                existParam.push({
+                    _id: {
+                        $ne: new ObjectId(actionParam["_id"] as string),
+                    },
+                    ...uniqueObj,
+                });
+            } else if(this.taskType === TaskTypes.UPDATE && (this.docIds.length > 0 || !isEmptyObject(this.queryParams))) {
+                // adjust query-object for update-task
+                const docIds = this.docIds.map(id => new ObjectId(id));
+                existParam.push({
+                    _id: {
+                        $nin: docIds,
+                    },
+                    ...uniqueObj,
+                });
+            } else {
+                // add uniqueness object to the existParams, to exclude the existing document(create-task)
+                existParam.push({
+                    ...uniqueObj,
+                });
+            }
+        }
+        return existParam;
+    }
+
+    // computeExistParams compute the query-object(s) for checking create/update documents uniqueness based on model-unique-fields constraints.
+    computeExistParams(): ActionExistParamsType {
+        // set the existParams for create or update action to determine documents uniqueness
+        const existParams: ActionExistParamsType = [];
+        if (this.uniqueFields.length < 1) {
+            this.existParams = [];
+            return [];
+        }
+        for (const actParam of this.actionParams) {
+            const existParam = this.computeExistParam(actParam);
+            if (existParam.length > 0) {
+                existParams.push(existParam);
+            }
+        }
+        this.existParams = existParams;
+        return existParams;
     }
 
     // set null value by DataTypes

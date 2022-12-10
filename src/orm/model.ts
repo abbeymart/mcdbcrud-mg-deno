@@ -33,7 +33,7 @@ import {
     newGetRecord,
     newGetRecordStream,
     newSaveRecord, ObjectType,
-    TaskTypes,
+    TaskTypes, ValueType,
 } from "../crud/index.ts";
 import { isEmptyObject } from "./helpers.ts";
 
@@ -159,6 +159,7 @@ export class Model<T extends BaseModelType> {
     }
 
     // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
+    // TODO: move to crud-class
     computeExistParam(actionParam: T): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
@@ -202,8 +203,8 @@ export class Model<T extends BaseModelType> {
         // set the existParams for create or update action to determine documents uniqueness
         const existParams: ActionExistParamsType = [];
         for (const actParam of actionParams) {
-            const existParam = this.computeExistParam(actParam)
-            existParams.push(existParam)
+            const existParam = this.computeExistParam(actParam);
+            existParams.push(existParam);
         }
         return existParams;
     }
@@ -258,80 +259,97 @@ export class Model<T extends BaseModelType> {
 
     // ***** helper methods *****
 
+    // computeFieldValueType computes the document-field-value-type, as DataTypes.
+    computeFieldValueType(val:ValueType):DataTypes {
+        console.log("field-value: ", val);
+        let computedType: DataTypes;
+        try {
+            if (Array.isArray(val)) {
+                if (val.every((item) => typeof item === "number")) {
+                    computedType = DataTypes.ARRAY_NUMBER;
+                } else if (val.every((item) => typeof item === "string")) {
+                    computedType = DataTypes.ARRAY_STRING;
+                } else if (val.every((item) => typeof item === "boolean")) {
+                    computedType = DataTypes.ARRAY_BOOLEAN;
+                } else if (val.every((item) => typeof item === "object")) {
+                    computedType = DataTypes.ARRAY_OBJECT;
+                } else {
+                    computedType = DataTypes.ARRAY;
+                }
+            } else if (typeof val === "string") {
+                // check all base string formats
+                if (validator.isDate(val)) {
+                    computedType = DataTypes.DATETIME;
+                } else if (validator.isEmail(val)) {
+                    computedType = DataTypes.EMAIL;
+                } else if (validator.isMongoId(val)) {
+                    computedType = DataTypes.MONGODB_ID;
+                } else if (validator.isUUID(val)) {
+                    computedType = DataTypes.STRING;        // default to STRING
+                } else if (validator.isJSON(val)) {
+                    computedType = DataTypes.JSON;
+                } else if (validator.isCreditCard(val)) {
+                    computedType = DataTypes.CREDIT_CARD;
+                } else if (validator.isCurrency(val)) {
+                    computedType = DataTypes.CURRENCY;
+                } else if (validator.isURL(val)) {
+                    computedType = DataTypes.URL;
+                } else if (validator.isPort(val)) {
+                    computedType = DataTypes.PORT;
+                } else if (validator.isIP(val)) {
+                    computedType = DataTypes.IP;
+                } else if (validator.isMimeType(val)) {
+                    computedType = DataTypes.MIME;
+                } else if (validator.isMACAddress(val)) {
+                    computedType = DataTypes.MAC_ADDRESS;
+                } else if (validator.isJWT(val)) {
+                    computedType = DataTypes.JWT;
+                } else if (validator.isLatLong(val)) {
+                    computedType = DataTypes.LAT_LONG;
+                } else if (validator.isISO31661Alpha2(val)) {
+                    computedType = DataTypes.ISO2;
+                } else if (validator.isISO31661Alpha3(val)) {
+                    computedType = DataTypes.ISO3;
+                } else if (validator.isPostalCode(val, "any")) {
+                    computedType = DataTypes.POSTAL_CODE;
+                } else {
+                    computedType = DataTypes.STRING;
+                }
+            } else if (typeof val === "number") {
+                if (validator.isDecimal(val.toString())) {
+                    computedType = DataTypes.DECIMAL;
+                } else if (validator.isFloat(val.toString())) {
+                    computedType = DataTypes.FLOAT;
+                } else if (validator.isInt(val.toString())) {
+                    computedType = DataTypes.INTEGER;
+                } else {
+                    computedType = DataTypes.NUMBER;
+                }
+            } else if (typeof val === "boolean") {
+                computedType = DataTypes.BOOLEAN;
+            } else if (typeof val === "object") {
+                if (validator.isDate(val)) {
+                    computedType = DataTypes.DATETIME;
+                } else {
+                    computedType = DataTypes.OBJECT;
+                }
+            } else {
+                computedType = DataTypes.UNKNOWN;
+            }
+            return computedType;
+        } catch (e) {
+            console.error(e);
+            throw new Error("Error computing docValue types: " + e.message);
+        }
+    }
+
     // computeDocValueType computes the document-field-value-types, as DataTypes.
     computeDocValueType(doc: T): ValueToDataTypes {
+        console.log("doc-value: ", doc);
         const computedTypes: ValueToDataTypes = {};
         try {
             for (const [key, val] of Object.entries(doc)) {
-                // const val: any = docValue[key];
-                if (Array.isArray(val)) {
-                    if (val.every((item) => typeof item === "number")) {
-                        computedTypes[key] = DataTypes.ARRAY_NUMBER;
-                    } else if (val.every((item) => typeof item === "string")) {
-                        computedTypes[key] = DataTypes.ARRAY_STRING;
-                    } else if (val.every((item) => typeof item === "boolean")) {
-                        computedTypes[key] = DataTypes.ARRAY_BOOLEAN;
-                    } else if (val.every((item) => typeof item === "object")) {
-                        computedTypes[key] = DataTypes.ARRAY_OBJECT;
-                    } else {
-                        computedTypes[key] = DataTypes.ARRAY;
-                    }
-                } else if (typeof val === "object") {
-                    computedTypes[key] = DataTypes.OBJECT;
-                } else if (typeof val === "string") {
-                    // check all base string formats
-                    if (validator.isDate(val)) {
-                        computedTypes[key] = DataTypes.DATETIME;
-                    } else if (validator.isEmail(val)) {
-                        computedTypes[key] = DataTypes.EMAIL;
-                    } else if (validator.isMongoId(val)) {
-                        computedTypes[key] = DataTypes.MONGODB_ID;
-                    } else if (validator.isUUID(val)) {
-                        computedTypes[key] = DataTypes.UUID;
-                    } else if (validator.isJSON(val)) {
-                        computedTypes[key] = DataTypes.JSON;
-                    } else if (validator.isCreditCard(val)) {
-                        computedTypes[key] = DataTypes.CREDIT_CARD;
-                    } else if (validator.isCurrency(val)) {
-                        computedTypes[key] = DataTypes.CURRENCY;
-                    } else if (validator.isURL(val)) {
-                        computedTypes[key] = DataTypes.URL;
-                    } else if (validator.isPort(val)) {
-                        computedTypes[key] = DataTypes.PORT;
-                    } else if (validator.isIP(val)) {
-                        computedTypes[key] = DataTypes.IP;
-                    } else if (validator.isMimeType(val)) {
-                        computedTypes[key] = DataTypes.MIME;
-                    } else if (validator.isMACAddress(val)) {
-                        computedTypes[key] = DataTypes.MAC_ADDRESS;
-                    } else if (validator.isJWT(val)) {
-                        computedTypes[key] = DataTypes.JWT;
-                    } else if (validator.isLatLong(val)) {
-                        computedTypes[key] = DataTypes.LAT_LONG;
-                    } else if (validator.isISO31661Alpha2(val)) {
-                        computedTypes[key] = DataTypes.ISO2;
-                    } else if (validator.isISO31661Alpha3(val)) {
-                        computedTypes[key] = DataTypes.ISO3;
-                    } else if (validator.isPostalCode(val, "any")) {
-                        computedTypes[key] = DataTypes.POSTAL_CODE;
-                    } else {
-                        computedTypes[key] = DataTypes.STRING;
-                    }
-                } else if (typeof val === "number") {
-                    if (validator.isDecimal(val.toString())) {
-                        computedTypes[key] = DataTypes.DECIMAL;
-                    } else if (validator.isFloat(val.toString())) {
-                        computedTypes[key] = DataTypes.FLOAT;
-                    } else if (validator.isInt(val.toString())) {
-                        computedTypes[key] = DataTypes.INTEGER;
-                    } else {
-                        computedTypes[key] = DataTypes.NUMBER;
-                    }
-                } else if (typeof val === "boolean") {
-                    computedTypes[key] = DataTypes.BOOLEAN;
-                } else {
-                    computedTypes[key] = DataTypes.UNKNOWN;
-                }
+                computedTypes[key] = this.computeFieldValueType(val);
             }
             return computedTypes;
         } catch (e) {
@@ -420,6 +438,7 @@ export class Model<T extends BaseModelType> {
                 switch (typeof fieldDesc) {
                     case "string":
                         // validate field-value-type
+                        fieldDesc = fieldDesc as DataTypes;
                         if (fieldValue && docValueTypes[key] !== fieldDesc) {
                             errors[key] = `Invalid type for: ${key}. Expected ${fieldDesc}. Got ${docValueTypes[key]}.`;
                         }
@@ -427,6 +446,7 @@ export class Model<T extends BaseModelType> {
                     case "object":
                         // validate field-value-type,
                         fieldDesc = fieldDesc as FieldDescType;
+                        console.log("type-compare: ", fieldDesc, docValueTypes[key]);
                         if (fieldValue && docValueTypes[key] !== fieldDesc.fieldType) {
                             errors[key] = fieldDesc.validateMessage ? fieldDesc.validateMessage :
                                 `Invalid Type for: ${key}. Expected ${fieldDesc.fieldType}, Got ${docValueTypes[key]}`;
@@ -604,6 +624,7 @@ export class Model<T extends BaseModelType> {
             // model specific params
             params.coll = this.modelCollName;
             params.docDesc = this.modelDocDesc;
+            options.uniqueFields = this.modelUniqueFields;
             this.taskType = TaskTypes.UNKNOWN;  // CREATE or UPDATE task-type
             // set checkAccess status for crud-task-permission control
             options.checkAccess = typeof options.checkAccess !== "undefined" ? options.checkAccess : false;
@@ -618,9 +639,11 @@ export class Model<T extends BaseModelType> {
             const docValueTypes = this.computeDocValueType(params.actionParams[0]);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
             const actParams: Array<T> = [];
+            console.log("actionParams: ", params.actionParams);
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
                 const modelDocValue = await this.setDefaultValues(docValue);
+                console.log("modelValue-defaults: ", modelDocValue);
                 // validate actionParam-item (docValue) field-values
                 const validateRes = await this.validateDocValue(modelDocValue, docValueTypes);
                 if (!validateRes.ok || !isEmptyObject(validateRes.errors)) {
@@ -632,7 +655,7 @@ export class Model<T extends BaseModelType> {
             // update CRUD params and options
             params.actionParams = actParams;
             // update unique-fields query-parameters
-            params.existParams = this.computeExistParams(params.actionParams);
+            // params.existParams = this.computeExistParams(params.actionParams);
             options = {
                 ...options, ...{modelOptions: this.modelOptionValues},
             };

@@ -74,11 +74,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 value  : {},
             });
         }
-        // check document/record(s) uniqueness
-        const existRes = await this.checkRecExist();
-        if (existRes.code !== "success") {
-            return existRes;
-        }
+
         // check task-type:
         this.taskType = this.checkTaskType();
         if (this.taskType === TaskTypes.UNKNOWN) {
@@ -349,6 +345,13 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 message: "Action/Create-document parameter-object are required.",
             });
         }
+
+        // check document/record(s) uniqueness
+        const existRes = await this.checkRecExist();
+        if (existRes.code !== "success") {
+            return existRes;
+        }
+
         if (this.isRecExist) {
             return getResMessage("recExist", {
                 message: this.recExistMessage,
@@ -408,11 +411,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 message: "Access-security-sensitive collections update are not allowed - via crud package."
             });
         }
-        if (this.isRecExist) {
-            return getResMessage("recExist", {
-                message: this.recExistMessage,
-            });
-        }
         if (this.updateItems.length < 1) {
             return getResMessage("paramsError", {
                 message: "Action/Update-document parameter-object are required.",
@@ -424,6 +422,20 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             const currentRecRes = await this.getCurrentRecords("id");
             if (currentRecRes.code !== "success") {
                 return currentRecRes;
+            }
+            const currentRecs = currentRecRes.value as unknown as Array<T>;
+            this.docIds = currentRecs.map(it => it["_id"] as string);
+
+            // check document/record(s) uniqueness
+            const existRes = await this.checkRecExist();
+            if (existRes.code !== "success") {
+                return existRes;
+            }
+
+            if (this.isRecExist) {
+                return getResMessage("recExist", {
+                    message: this.recExistMessage,
+                });
             }
             // check/validate update/upsert command for multiple documents
             let updateCount = 0;
@@ -628,11 +640,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 message: "Access-security-sensitive collections update are not allowed - via crud package."
             })
         }
-        if (this.isRecExist) {
-            return getResMessage("recExist", {
-                message: this.recExistMessage,
-            });
-        }
         if (this.docIds.length < 1) {
             return getResMessage("paramsError", {
                 message: "document-IDs required to update documents.",
@@ -652,6 +659,20 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
+            this.docIds = currentRecs.map(it => it["_id"] as string);
+
+            // check document/record(s) uniqueness
+            const existRes = await this.checkRecExist();
+            if (existRes.code !== "success") {
+                return existRes;
+            }
+
+            if (this.isRecExist) {
+                return getResMessage("recExist", {
+                    message: this.recExistMessage,
+                });
+            }
+
             // destruct _id /other attributes
             const {_id, ...otherParams} = this.actionParams[0];
             // update multiple documents
@@ -866,6 +887,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
+            this.docIds = currentRecs.map(it => it["_id"] as string);
+
             // destruct _id /other attributes
             const item = this.actionParams[0];
             const {_id, ...otherParams} = item;
