@@ -260,7 +260,7 @@ export class Model<T extends BaseModelType> {
     // ***** helper methods *****
 
     // computeFieldValueType computes the document-field-value-type, as DataTypes.
-    computeFieldValueType(val:ValueType):DataTypes {
+    computeFieldValueType(val: ValueType): DataTypes {
         console.log("field-value: ", val);
         let computedType: DataTypes;
         try {
@@ -657,7 +657,8 @@ export class Model<T extends BaseModelType> {
             // update unique-fields query-parameters
             // params.existParams = this.computeExistParams(params.actionParams);
             options = {
-                ...options, ...{modelOptions: this.modelOptionValues},
+                ...options,
+                ...{modelOptions: this.modelOptionValues},
             };
             // instantiate CRUD-save class & perform save-crud task (create or update)
             const crud = newSaveRecord(params, options);
@@ -739,12 +740,13 @@ export class Model<T extends BaseModelType> {
             this.checkAccess = options.checkAccess;
             // update options
             options = {
-                ...options, ...{
+                ...options,
+                ...{
                     parentColls    : this.getParentColls(),
                     childColls     : this.getChildColls(),
                     parentRelations: this.getParentRelations(),
                     childRelations : this.getChildRelations(),
-                }
+                },
             }
             const crud = newDeleteRecord(params, options);
             return await crud.deleteRecord();

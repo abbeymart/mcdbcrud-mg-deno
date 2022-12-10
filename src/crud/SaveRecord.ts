@@ -347,7 +347,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         }
 
         // check document/record(s) uniqueness
-        const existRes = await this.checkRecExist();
+        const existRes = await this.checkRecExist(this.createItems);
         if (existRes.code !== "success") {
             return existRes;
         }
@@ -423,11 +423,8 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             if (currentRecRes.code !== "success") {
                 return currentRecRes;
             }
-            const currentRecs = currentRecRes.value as unknown as Array<T>;
-            this.docIds = currentRecs.map(it => it["_id"] as string);
-
             // check document/record(s) uniqueness
-            const existRes = await this.checkRecExist();
+            const existRes = await this.checkRecExist(this.updateItems);
             if (existRes.code !== "success") {
                 return existRes;
             }
@@ -659,10 +656,9 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
-            this.docIds = currentRecs.map(it => it["_id"] as string);
 
             // check document/record(s) uniqueness
-            const existRes = await this.checkRecExist();
+            const existRes = await this.checkRecExist(currentRecs);
             if (existRes.code !== "success") {
                 return existRes;
             }
@@ -874,11 +870,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 message: "queryParams is required to update documents.",
             });
         }
-        if (this.isRecExist) {
-            return getResMessage("recExist", {
-                message: this.recExistMessage,
+        if (this.actionParams.length < 1) {
+            return getResMessage("paramsError", {
+                message: "Action/Update-document parameter-object are required.",
             });
         }
+
         try {
             let errMsg = "";
             // check current documents prior to update
@@ -887,7 +884,18 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 return currentRecRes;
             }
             const currentRecs = currentRecRes.value as unknown as Array<T>;
-            this.docIds = currentRecs.map(it => it["_id"] as string);
+
+            // check document/record(s) uniqueness
+            const existRes = await this.checkRecExist(currentRecs);
+            if (existRes.code !== "success") {
+                return existRes;
+            }
+
+            if (this.isRecExist) {
+                return getResMessage("recExist", {
+                    message: this.recExistMessage,
+                });
+            }
 
             // destruct _id /other attributes
             const item = this.actionParams[0];

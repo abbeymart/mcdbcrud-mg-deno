@@ -7,7 +7,8 @@
 // Import required module/function(s)/types
 import { Database, Document, Filter, getResMessage, MongoClient, ObjectId, ResponseMessage } from "../../deps.ts";
 import {
-    ActionExistParamsType, ActionParamType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType,
+    ActionExistParamsType, ActionParamsType, ActionParamType, BaseModelType, CheckAccessType, CrudOptionsType,
+    CrudParamsType,
     ExistParamItemType,
     ExistParamsType,
     FieldValueTypes, ObjectType, OkResponse, ProjectParamsType, QueryParamsType, RoleFuncType, RoleServiceResponseType,
@@ -15,7 +16,7 @@ import {
 } from "./types.ts";
 import { AuditLog, newAuditLog } from "../auditlog/index.ts";
 import {
-    DataTypes, DefaultValueType, DocDescType, FieldDescType, isEmptyObject, ModelRelationType
+    DataTypes, DefaultValueType, DocDescType, FieldDescType, ModelRelationType
 } from "../orm/index.ts";
 
 export class Crud<T extends BaseModelType> {
@@ -223,11 +224,11 @@ export class Crud<T extends BaseModelType> {
     }
 
     // checkRecExist method checks if items/documents exist: document uniqueness
-    async checkRecExist(): Promise<ResponseMessage> {
+    async checkRecExist(actionParams: ActionParamsType<T>): Promise<ResponseMessage> {
         try {
-            this.computeExistParams();
+            const existParams = this.computeExistParams(actionParams);
             // check if existParams condition is specified
-            if (this.existParams.length < 1) {
+            if (existParams.length < 1 || this.existParams.length < 1) {
                 return getResMessage("success", {
                     message: "No data integrity condition specified",
                 });
@@ -353,7 +354,6 @@ export class Crud<T extends BaseModelType> {
     }
 
     // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
-    // TODO: move to crud-class
     computeExistParam(actionParam: T): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
@@ -385,15 +385,6 @@ export class Crud<T extends BaseModelType> {
                     },
                     ...uniqueObj,
                 });
-            } else if(this.taskType === TaskTypes.UPDATE && (this.docIds.length > 0 || !isEmptyObject(this.queryParams))) {
-                // adjust query-object for update-task
-                const docIds = this.docIds.map(id => new ObjectId(id));
-                existParam.push({
-                    _id: {
-                        $nin: docIds,
-                    },
-                    ...uniqueObj,
-                });
             } else {
                 // add uniqueness object to the existParams, to exclude the existing document(create-task)
                 existParam.push({
@@ -405,14 +396,14 @@ export class Crud<T extends BaseModelType> {
     }
 
     // computeExistParams compute the query-object(s) for checking create/update documents uniqueness based on model-unique-fields constraints.
-    computeExistParams(): ActionExistParamsType {
+    computeExistParams(actionParams: ActionParamsType<T>): ActionExistParamsType {
         // set the existParams for create or update action to determine documents uniqueness
         const existParams: ActionExistParamsType = [];
         if (this.uniqueFields.length < 1) {
             this.existParams = [];
             return [];
         }
-        for (const actParam of this.actionParams) {
+        for (const actParam of actionParams) {
             const existParam = this.computeExistParam(actParam);
             if (existParam.length > 0) {
                 existParams.push(existParam);
