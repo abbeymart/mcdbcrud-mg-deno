@@ -88,7 +88,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     });
 
     await mcTest({
-        name    : "should return unique-error for updating documents by Ids:",
+        name    : "should return unique-error [existError or updateError] for updating documents by Ids:",
         testFunc: async () => {
             crudParams.coll = groupCollUpdate
             crudParams.actionParams = [GroupUpdateRecordById]

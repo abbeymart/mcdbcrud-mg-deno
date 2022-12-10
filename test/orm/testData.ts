@@ -139,11 +139,11 @@ export const GroupModel = newModel(groupModel, groupOptions);
 export const CategoryModel = newModel(categoryModel, categoryOptions);
 
 export const groupColl = collections.GROUPS;
-export const groupCollUpdate = "groupsUpdate";
-export const groupCollDelete = "groupsDelete";
+export const groupCollUpdate = "groups_update";
+export const groupCollDelete = "groups_delete";
 export const categoryColl = collections.CATEGORIES;
-export const categoryCollUpdate = "categoriesUpdate";
-export const categoryCollDelete = "categoriesDelete";
+export const categoryCollUpdate = "categories_update";
+export const categoryCollDelete = "categories_delete";
 
 // export const UserId = "c85509ac-7373-464d-b667-425bb59b5738"
 
@@ -248,9 +248,9 @@ export const UpdateGroupById = "6393ef7f9a2eeb643b67e7d4"
 
 // ??
 export const UpdateGroupByIds: Array<string> = [
-    "638fd835c77947991e7f7e11",
-    "638fd835c77947991e7f7e12",
-    "638fd835c77947991e7f7e13",
+    "6393ef7f9a2eeb643b67e7d6",
+    "6393ef7f9a2eeb643b67e7d7",
+    "6393ef7f9a2eeb643b67e7d8",
 ]
 
 export const UpdateGroupByParams: QueryParamsType = {
@@ -268,15 +268,15 @@ export const DeleteGroupById = "6393ef7f9a2eeb643b67e7d9";
 
 // ??
 export const DeleteGroupByIds: Array<string> = [
-    "638fd62cd7d613895979da28",
-    "638fd62cd7d613895979da29",
-    "638fd62cd7d613895979da2a",
-    "638fd62cd7d613895979da2b",
+    "6393ef7f9a2eeb643b67e7da",
+    "6393ef7f9a2eeb643b67e7db",
+    "6393ef7f9a2eeb643b67e7dc",
+    "6393ef7f9a2eeb643b67e7dd",
 ]
 
 // ??
 export const DeleteGroupByParams: QueryParamsType = {
-    "logType": "read",
+    "name": "Expense",
 }
 
 
