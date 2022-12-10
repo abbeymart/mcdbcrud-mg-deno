@@ -180,7 +180,7 @@ export class Model<T extends BaseModelType> {
                 }
             }
             // add uniqueness object to the existParams, to exclude the existing document(update-task)
-            if (actionParam["_id"] || actionParam["_id"] !== "") {
+            if (actionParam["_id"] && actionParam["_id"] !== "" && (actionParam["_id"]).length <= 24) {
                 existParam.push({
                     _id: {
                         $ne: new ObjectId(actionParam["_id"] as string),
@@ -633,7 +633,6 @@ export class Model<T extends BaseModelType> {
             params.actionParams = actParams;
             // update unique-fields query-parameters
             params.existParams = this.computeExistParams(params.actionParams);
-            console.log("exist-params: ", params.existParams);
             options = {
                 ...options, ...{modelOptions: this.modelOptionValues},
             };

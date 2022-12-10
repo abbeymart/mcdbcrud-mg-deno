@@ -236,8 +236,11 @@ export class Crud<T extends BaseModelType> {
                         // capture attributes for any duplicate-document
                         Object.entries(existItem)
                             .forEach(([key, value]) => {
-                                attributesMessage = attributesMessage ? `${attributesMessage} | ${key}: ${value}` :
-                                    `${key}: ${value}`;
+                                if (key !== "_id") {
+                                    attributesMessage = attributesMessage ?
+                                        `${attributesMessage} | ${key}: ${value}` :
+                                        `${key}: ${value}`;
+                                }
                             });
                         // if a duplicate-document was found, break the inner-for-loop
                         break;
@@ -252,7 +255,7 @@ export class Crud<T extends BaseModelType> {
             }
             if (this.isRecExist) {
                 return getResMessage("recordExist", {
-                    message: `Document/Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create or update document(s).`,
+                    message: `Document unique attributes [${attributesMessage}] not met. Provide unique attributes to create or update document(s).`,
                 });
             } else {
                 return getResMessage("success", {
@@ -565,10 +568,10 @@ export class Crud<T extends BaseModelType> {
                         collAccessPermitted = collRoleService.canRead || collRoleService.canCrud;
                         break;
                     case TaskTypes.CREATE:
-                        collAccessPermitted = collRoleService.canCreate|| collRoleService.canCrud;
+                        collAccessPermitted = collRoleService.canCreate || collRoleService.canCrud;
                         break;
                     case TaskTypes.UPDATE:
-                        collAccessPermitted = collRoleService.canUpdate|| collRoleService.canCrud;
+                        collAccessPermitted = collRoleService.canUpdate || collRoleService.canCrud;
                         break;
                     case TaskTypes.DELETE:
                     case TaskTypes.REMOVE:

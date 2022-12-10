@@ -56,31 +56,33 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     // });
 
     await mcTest({
-        name    : "should return error creating a non-unique record:",
+        name    : "should return error creating a non-unique/existing document:",
         testFunc: async () => {
             crudParams.actionParams = [GroupCreateRec1];
             crudParams.docIds = [];
             crudParams.queryParams = {};
             const res = await GroupModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
+            assertEquals(res.code === "recordExist", true, `create-task should return recordExist`);
             assertEquals(res.code !== "success", true, `create-task should return existError`);
         }
     });
 
     await mcTest({
-        name    : "should return error creating a record due to name-length constraint error:",
+        name    : "should return error creating a document due to name-length constraint error:",
         testFunc: async () => {
             crudParams.actionParams = [GroupCreateRecNameConstraint];
             crudParams.docIds = [];
             crudParams.queryParams = {};
             const res = await GroupModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
+            assertEquals(res.code === "paramsError", true, `create-task should return existError`);
             assertEquals(res.code !== "success", true, `create-task should return createError`);
         }
     });
 
     // await mcTest({
-    //     name    : "should update two existing records and return success:",
+    //     name    : "should update two existing documents and return success:",
     //     testFunc: async () => {
     //         crudParams.coll = groupCollUpdate;
     //         crudParams.actionParams = GroupUpdateActionParams;

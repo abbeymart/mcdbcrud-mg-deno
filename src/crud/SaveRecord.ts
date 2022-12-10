@@ -10,8 +10,7 @@ import { deleteHashCache, getResMessage, ObjectId, ResponseMessage, } from "../.
 import Crud from "./Crud.ts";
 import {
     ActionParamTaskType, AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType,
-    CrudResultType,
-    ExistParamsType, LogDocumentsType, ObjectType, QueryParamsType, TaskTypes,
+    CrudResultType, LogDocumentsType, ObjectType, QueryParamsType, TaskTypes,
 } from "./types.ts";
 import { FieldDescType, isEmptyObject, ModelOptionsType, RelationActionTypes } from "../orm/index.ts";
 
