@@ -37,21 +37,45 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     crudParamOptions.auditDbName = appDb.database;
     crudParamOptions.auditColl = auditColl;
 
+    // await mcTest({
+    //     name    : "should create ten new records and return success:",
+    //     testFunc: async () => {
+    //         crudParams.actionParams = GroupCreateActionParams;
+    //         crudParams.docIds = [];
+    //         crudParams.queryParams = {};
+    //         const recLen = crudParams.actionParams?.length || 0;
+    //         const res = await GroupModel.save(crudParams, crudParamOptions);
+    //         console.log("create-result: ", res);
+    //         const resValue = res.value as unknown as CrudResultType<GroupType>;
+    //         const idLen = resValue.recordIds?.length || 0;
+    //         const recCount = resValue.recordsCount || 0;
+    //         assertEquals(res.code, "success", `create-task should return code: success`);
+    //         assertEquals(idLen, recLen, `response-value-records-length should be: ${recLen}`);
+    //         assertEquals(recCount, recLen, `response-value-recordsCount should be: ${recLen}`);
+    //     }
+    // });
+
     await mcTest({
-        name    : "should create ten new records and return success:",
+        name    : "should return error creating a non-unique record:",
         testFunc: async () => {
-            crudParams.actionParams = GroupCreateActionParams;
+            crudParams.actionParams = [GroupCreateRec1];
             crudParams.docIds = [];
             crudParams.queryParams = {};
-            const recLen = crudParams.actionParams?.length || 0;
             const res = await GroupModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
-            const resValue = res.value as unknown as CrudResultType<GroupType>;
-            const idLen = resValue.recordIds?.length || 0;
-            const recCount = resValue.recordsCount || 0;
-            assertEquals(res.code, "success", `create-task should return code: success`);
-            assertEquals(idLen, recLen, `response-value-records-length should be: ${recLen}`);
-            assertEquals(recCount, recLen, `response-value-recordsCount should be: ${recLen}`);
+            assertEquals(res.code !== "success", true, `create-task should return existError`);
+        }
+    });
+
+    await mcTest({
+        name    : "should return error creating a record due to name-length constraint error:",
+        testFunc: async () => {
+            crudParams.actionParams = [GroupCreateRecNameConstraint];
+            crudParams.docIds = [];
+            crudParams.queryParams = {};
+            const res = await GroupModel.save(crudParams, crudParamOptions);
+            console.log("create-result: ", res);
+            assertEquals(res.code !== "success", true, `create-task should return createError`);
         }
     });
 
@@ -123,30 +147,6 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     //         assertEquals(recCount > recLen, true, `response-value-recordsCount should be >: ${recLen}`);
     //     }
     // });
-
-    await mcTest({
-        name    : "should return error creating a non-unique record:",
-        testFunc: async () => {
-            crudParams.actionParams = [GroupCreateRec1];
-            crudParams.docIds = [];
-            crudParams.queryParams = {};
-            const res = await GroupModel.save(crudParams, crudParamOptions);
-            console.log("create-result: ", res);
-            assertEquals(res.code !== "success", true, `create-task should return existError`);
-        }
-    });
-
-    await mcTest({
-        name    : "should return error creating a record due to name-length constraint error:",
-        testFunc: async () => {
-            crudParams.actionParams = [GroupCreateRecNameConstraint];
-            crudParams.docIds = [];
-            crudParams.queryParams = {};
-            const res = await GroupModel.save(crudParams, crudParamOptions);
-            console.log("create-result: ", res);
-            assertEquals(res.code !== "success", true, `create-task should return createError`);
-        }
-    });
 
     postTestResult();
     await appDbInstance.closeDb();

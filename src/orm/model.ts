@@ -168,10 +168,16 @@ export class Model<T extends BaseModelType> {
             for (const field of fields) {
                 // exclude primary/unique _id field/key
                 if (field === "_id") {
-                    continue
+                    continue;
                 }
                 // set unique item value
-                uniqueObj[field] = (actionParam as unknown as ObjectType)[field];
+                const fieldValue = (actionParam as unknown as ObjectType)[field];
+                if (field.toLowerCase().endsWith("id") && fieldValue !== "" &&
+                    (fieldValue as string).length <= 24) {
+                    uniqueObj[field] = new ObjectId(fieldValue as string);
+                } else {
+                    uniqueObj[field] = fieldValue;
+                }
             }
             // add uniqueness object to the existParams, to exclude the existing document(update-task)
             if (actionParam["_id"] || actionParam["_id"] !== "") {
@@ -627,6 +633,7 @@ export class Model<T extends BaseModelType> {
             params.actionParams = actParams;
             // update unique-fields query-parameters
             params.existParams = this.computeExistParams(params.actionParams);
+            console.log("exist-params: ", params.existParams);
             options = {
                 ...options, ...{modelOptions: this.modelOptionValues},
             };

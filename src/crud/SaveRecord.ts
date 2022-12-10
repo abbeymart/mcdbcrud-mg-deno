@@ -58,8 +58,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         }
 
         // determine update / create (new) items from actionParams
-        await this.computeItems();
-        // determine update / create (new) items from actionParams
         const {docIds} = await this.computeItems();
         // validate createItems and updateItems
         if (this.createItems.length === this.updateItems.length) {
@@ -77,6 +75,11 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 value  : {},
             });
         }
+        // check document/record(s) uniqueness
+        const existRes = await this.checkRecExist();
+        if (existRes.code !== "success") {
+            return existRes;
+        }
         // check task-type:
         this.taskType = this.checkTaskType();
         if (this.taskType === TaskTypes.UNKNOWN) {
@@ -91,30 +94,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             const {_id, ...otherParams} = this.queryParams;
             this.queryParams = otherParams;
-        }
-
-        // Ensure the _id and fields ending in Id for existParams are of type mongoDb-new ObjectId, for create / update actions
-        if (this.existParams && this.existParams.length > 0) {
-            this.existParams.forEach((existParams: ExistParamsType) => {
-                for (const item of existParams) {
-                    // transform/cast id, from string, to mongoDB-new ObjectId
-                    // const item: unknown = it
-                    Object.keys(item).forEach((itemKey: string) => {
-                        if (itemKey.toString().toLowerCase().endsWith("id")) {
-                            // create | TODO: review id-field length
-                            const itemVal = item[itemKey];
-                            const itemObjVal = item[itemKey] as ObjectType;
-                            if (typeof itemVal === "string" && itemVal !== "" &&
-                                itemVal.toString().length <= 24) {
-                                item[itemKey] = new ObjectId(itemVal as string);
-                            } else if (typeof itemObjVal === "object" && itemObjVal["$ne"] &&
-                                (itemObjVal["$ne"] !== "" || itemObjVal["$ne"] !== null)) {
-                                itemObjVal["$ne"] = new ObjectId(itemObjVal["$ne"] as string);
-                            }
-                        }
-                    });
-                }
-            });
         }
 
         // create records/document(s)

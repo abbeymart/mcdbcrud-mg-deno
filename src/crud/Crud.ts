@@ -252,7 +252,7 @@ export class Crud<T extends BaseModelType> {
             }
             if (this.isRecExist) {
                 return getResMessage("recordExist", {
-                    message: `Document/Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create or update record(s).`,
+                    message: `Document/Record with similar combined attributes [${attributesMessage}] exists. Provide unique record attributes to create or update document(s).`,
                 });
             } else {
                 return getResMessage("success", {

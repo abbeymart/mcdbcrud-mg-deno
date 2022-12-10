@@ -101,7 +101,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 }
                 // parent-child integrity check, multiple collections
                 if (this.deleteRestrict) {
-                    const refIntegrity = await this.checkRefIntegrityById();
+                    const refIntegrity = await this.checkRefIntegrity();
                     if (refIntegrity.code !== "success") {
                         return refIntegrity;
                     }
@@ -138,7 +138,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 }
                 // parent-child integrity check, multiple collections
                 if (this.deleteRestrict) {
-                    const refIntegrity = await this.checkRefIntegrityByParams();
+                    const refIntegrity = await this.checkRefIntegrity();
                     if (refIntegrity.code !== "success") {
                         return refIntegrity;
                     }
@@ -194,83 +194,65 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         })
     }
 
-    // checkRefIntegrityById checks referential integrity for parent-child collections, by document-Id
-    checkRefIntegrityById(): ResponseMessage {
+    // checkRefIntegrityById checks referential integrity for parent-child collections, for the current-document/records.
+    checkRefIntegrity(): ResponseMessage {
         // required-inputs: parent/child-collections and current item-id/item-name
         if (this.childRelations.length < 1) {
             return getResMessage("success", {
                 message: "no data integrity condition specified or required",
             });
         }
-        if (this.docIds.length > 0) {
-            // prevent item delete, if child-collection-items reference itemId
-            const subItems: Array<SubItemsType> = []
-            // docIds ref-check
-            const childExist = this.childRelations.some(async (relation) => {
-                const targetDbColl = this.appDb.collection(relation.targetColl);
-                // include foreign-key/target as the query condition
-                const targetField = relation.targetField;
-                const sourceField = relation.sourceField;
-                const query: ObjectType = {}
-                if (sourceField === "_id") {
-                    query[targetField] = {
-                        $in: this.docIds,
-                    }
-                } else {
-                    // other source-fields besides _id
-                    const sourceFieldValues = this.currentRecs.map((item) => (item as unknown as ObjectType)[sourceField]);
-                    query[targetField] = {
-                        $in: sourceFieldValues,
-                    }
-                }
-                const collItem = await targetDbColl.findOne(query as Filter<ValueType>);
-                if (collItem && !isEmptyObject(collItem as unknown as ObjectType)) {
-                    subItems.push({
-                        collName          : relation.targetColl,
-                        hasRelationRecords: true,
-                    });
-                    return true;
-                } else {
-                    subItems.push({
-                        collName          : relation.targetColl,
-                        hasRelationRecords: false,
-                    });
-                    return false;
-                }
-            });
-            this.subItems = subItems;
-            if (childExist) {
-                return getResMessage("subItems", {
-                    message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
-                    value  : subItems as unknown as Array<ObjectType>,
+        // prevent item delete, if child-collection-items reference itemId
+        const subItems: Array<SubItemsType> = []
+        // docIds ref-check
+        const childExist = this.childRelations.some(async (relation) => {
+            const targetDbColl = this.appDb.collection(relation.targetColl);
+            // include foreign-key/target as the query condition
+            const targetField = relation.targetField;
+            const sourceField = relation.sourceField;
+            const query: ObjectType = {}
+            if (sourceField.toLowerCase().endsWith("id")) {
+                const sourceFieldValues = this.currentRecs.map((item) => {
+                    const idValue = (item as unknown as ObjectType)[sourceField];
+                    return new ObjectId(idValue as string);
                 });
+                query[targetField] = {
+                    $in: sourceFieldValues,
+                };
             } else {
-                return getResMessage("success", {
-                    message: "no data integrity issue",
-                    value  : subItems as unknown as Array<ObjectType>,
-                });
+                // other source-fields besides _id & fields endsWith id/Id/ID
+                const sourceFieldValues = this.currentRecs.map((item) => (item as unknown as ObjectType)[sourceField]);
+                query[targetField] = {
+                    $in: sourceFieldValues,
+                };
             }
+            const collItem = await targetDbColl.findOne(query as Filter<ValueType>);
+            if (collItem && !isEmptyObject(collItem as unknown as ObjectType)) {
+                subItems.push({
+                    collName          : relation.targetColl,
+                    hasRelationRecords: true,
+                });
+                return true;
+            } else {
+                subItems.push({
+                    collName          : relation.targetColl,
+                    hasRelationRecords: false,
+                });
+                return false;
+            }
+        });
+        this.subItems = subItems;
+        if (childExist) {
+            return getResMessage("subItems", {
+                message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
+                value  : subItems as unknown as Array<ObjectType>,
+            });
         } else {
             return getResMessage("success", {
-                message: "docIds is required for integrity check/validation",
+                message: "no data integrity issue",
+                value  : subItems as unknown as Array<ObjectType>,
             });
         }
-    }
-
-    // checkRefIntegrityByParams checks referential integrity for parent-child collections, by queryParams
-    async checkRefIntegrityByParams(): Promise<ResponseMessage> {
-        // required-inputs: parent/child-collections and current item-id/item-name
-        if (this.queryParams && !isEmptyObject(this.queryParams)) {
-            await this.getCurrentRecords("queryParams")
-            this.docIds = [];
-            this.currentRecs.forEach((item) => {
-                this.docIds.push(item["_id"] as string);
-            });
-            return this.checkRefIntegrityById();
-        }
-        return getResMessage("paramsError", {
-            message: "queryParams is required",
-        })
     }
 
     async removeRecordById(): Promise<ResponseMessage> {
