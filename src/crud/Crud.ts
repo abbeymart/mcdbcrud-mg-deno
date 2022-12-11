@@ -5,14 +5,16 @@
  */
 
 // Import required module/function(s)/types
-import { Database, Document, Filter, getResMessage, MongoClient, ObjectId, ResponseMessage } from "../../deps.ts";
+import {
+    Database, Document, Filter, getResMessage, MongoClient, ObjectId, ResponseMessage, lodash
+} from "../../deps.ts";
 import {
     ActionExistParamsType, ActionParamsType, ActionParamType, BaseModelType, CheckAccessType, CrudOptionsType,
     CrudParamsType,
     ExistParamItemType,
     ExistParamsType,
     FieldValueTypes, ObjectType, OkResponse, ProjectParamsType, QueryParamsType, RoleFuncType, RoleServiceResponseType,
-    SortParamsType, SubItemsType, TaskTypes, UserInfoType, ValueType,
+    SortParamsType, TaskTypes, UserInfoType, ValueType,
 } from "./types.ts";
 import { AuditLog, newAuditLog } from "../auditlog/index.ts";
 import {
@@ -78,7 +80,7 @@ export class Crud<T extends BaseModelType> {
     protected emailExistsMessage: string;
     protected recExistMessage: string;
     protected unAuthorizedMessage: string;
-    protected subItems: Array<SubItemsType>;
+    protected subItems: Array<string>;
     protected cacheExpire: number;
     protected readonly parentColls: Array<string>;
     protected readonly childColls: Array<string>;
@@ -227,54 +229,69 @@ export class Crud<T extends BaseModelType> {
     async checkRecExist(actionParams: ActionParamsType<T>, currentRecs: Array<T> = []): Promise<ResponseMessage> {
         try {
             const existParams = this.computeExistParams(actionParams, currentRecs);
-            console.log("existParams: ", existParams);
             // check if existParams condition is specified
             if (existParams.length < 1 || this.existParams.length < 1) {
                 return getResMessage("success", {
                     message: "No data integrity condition specified",
                 });
             }
-            // check record existence/uniqueness for the documents/actionParams
+
+            // check uniqueness of the actionParams, i.e. for multiple save-documents
+            let docErrMsg = "";
+            for (const actionExistParams of this.existParams) {
+                for (const existItem of actionExistParams) {
+                    const documents = lodash.filter(actionParams, existItem) as Array<T>;
+                    if (documents.length > 1) {
+                        // capture duplicate document attributes
+                        Object.entries(existItem)
+                            .forEach(([key, value]) => {
+                                if (key !== "_id") {
+                                    docErrMsg = docErrMsg ? `${docErrMsg} | ${key}: ${value}` : `${key}: ${value}`;
+                                }
+                            });
+                    }
+                }
+                if (docErrMsg) {
+                    this.isRecExist = true;
+                    return getResMessage("recordExist", {
+                        message: `Documents must meet the collection uniqueness condition {${docErrMsg}} [1]. Provide unique attributes to create or update document(s).`,
+                    });
+                }
+                this.isRecExist = false;
+            }
+
+            // check record existence/uniqueness for the documents/actionParams, for datastore current-documents
             const appDbColl = this.appDb.collection(this.coll);
-            let attributesMessage = "";
+            docErrMsg = "";
             for (const actionExistParams of this.existParams) {
                 for (const existItem of actionExistParams) {
                     const recordExist = await appDbColl.findOne(existItem);
                     if (recordExist) {
-                        this.isRecExist = true;
-                        // capture attributes for any duplicate-document
+                        // capture duplicate document attributes
                         Object.entries(existItem)
                             .forEach(([key, value]) => {
                                 if (key !== "_id") {
-                                    attributesMessage = attributesMessage ?
-                                        `${attributesMessage} | ${key}: ${value}` :
-                                        `${key}: ${value}`;
+                                    docErrMsg = docErrMsg ? `${docErrMsg} | ${key}: ${value}` : `${key}: ${value}`;
                                 }
                             });
-                        // if a duplicate-document was found, break the inner-for-loop
-                        break;
-                    } else {
-                        this.isRecExist = false;
                     }
                 }
-                // if a duplicate-document was found, break the outer-for-loop
-                if (this.isRecExist) {
-                    break;
+                if (docErrMsg) {
+                    this.isRecExist = true;
+                    return getResMessage("recordExist", {
+                        message: `Documents must meet the collection uniqueness condition {${docErrMsg}} [2]. Provide unique attributes to create or update document(s).`,
+                    });
                 }
+                this.isRecExist = false;
             }
-            if (this.isRecExist) {
-                return getResMessage("recordExist", {
-                    message: `Document unique attributes [${attributesMessage}] not met. Provide unique attributes to create or update document(s).`,
-                });
-            } else {
-                return getResMessage("success", {
-                    message: "No data integrity conflict",
-                });
-            }
+            return getResMessage("success", {
+                message: "No data integrity conflict",
+            });
         } catch (e) {
             console.error(e);
-            return getResMessage("saveError", {
-                message: "Unable to verify data integrity conflict",
+            return getResMessage("recordExist", {
+                message: e.message ? `${e.message} - document uniqueness verification error` :
+                    "Unable to verify data integrity [document-uniqueness]",
             });
         }
     }
@@ -355,7 +372,7 @@ export class Crud<T extends BaseModelType> {
     }
 
     // computeExistParam compute the query-object(s) for checking create/update document uniqueness based on model-unique-fields constraints.
-    computeExistParam(actionParam: T, currentRec= {}): ExistParamsType {
+    computeExistParam(actionParam: T, currentRec = {}): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
         if (this.uniqueFields.length < 1) {
@@ -379,9 +396,9 @@ export class Crud<T extends BaseModelType> {
                 }
             }
             // add uniqueness object to the existParams, to exclude the existing document(update-task)
-            if(currentRec && !isEmptyObject(currentRec as ObjectType)) {
+            if (currentRec && !isEmptyObject(currentRec as ObjectType)) {
                 const rec = currentRec as ObjectType;
-                const recId = (rec["_id"])?.toString() ||"";
+                const recId = (rec["_id"])?.toString() || "";
                 if (recId && recId !== "" && recId.length <= 24) {
                     existParam.push({
                         _id: {

@@ -141,9 +141,11 @@ export const CategoryModel = newModel(categoryModel, categoryOptions);
 export const groupColl = collections.GROUPS;
 export const groupCollUpdate = "groups_update";
 export const groupCollDelete = "groups_delete";
+export const groupCollDeleteAll = "groups_delete_all";
 export const categoryColl = collections.CATEGORIES;
 export const categoryCollUpdate = "categories_update";
 export const categoryCollDelete = "categories_delete";
+export const categoryCollDeleteAll = "categories_delete_all";
 
 // export const UserId = "c85509ac-7373-464d-b667-425bb59b5738"
 
@@ -204,6 +206,14 @@ export const GroupCreateActionParams: Array<GroupType> = [
     GroupCreateRec8,
     GroupCreateRec9,
     GroupCreateRec10,
+]
+
+export const GroupCreateNonUniqueDocuments: Array<GroupType> = [
+    GroupCreateRec1,
+    GroupCreateRec1,
+    GroupCreateRec1,
+    GroupCreateRec1,
+    GroupCreateRec1,
 ]
 
 // change Expense to Expenses
@@ -276,7 +286,7 @@ export const DeleteGroupByIds: Array<string> = [
 
 // ??
 export const DeleteGroupByParams: QueryParamsType = {
-    "name": "Expense",
+    "name": "Locale",
 }
 
 

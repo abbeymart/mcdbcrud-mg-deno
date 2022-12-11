@@ -6,7 +6,7 @@
  */
 
 import validator from "npm:validator";
-import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, Document, } from "../../deps.ts";
+import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, Document, FindCursor, } from "../../deps.ts";
 
 import {
     ComputedMethodsType,
@@ -100,16 +100,8 @@ export class Model<T extends BaseModelType> {
         return this.relations;
     }
 
-    get modelComputedMethods(): ComputedMethodsType {
-        return this.computedMethods;
-    }
-
     get modelValidateMethod(): ValidateMethodResponseType {
         return this.validateMethod;
-    }
-
-    get modelAlterSyncColl(): boolean {
-        return this.alterSyncColl;
     }
 
     // instance methods
@@ -154,54 +146,6 @@ export class Model<T extends BaseModelType> {
     getChildColls(): Array<string> {
         const childRelations = this.getChildRelations();
         return childRelations.length > 0 ? childRelations.map(rel => rel.targetColl) : [];
-    }
-
-    // computeRequiredFields computes the non-null fields, i.e. allowNull === false.
-    computeRequiredFields(): Array<string> {
-        const requiredFields: Array<string> = [];
-        for (let [field, fieldDesc] of Object.entries(this.modelDocDesc)) {
-            switch (typeof fieldDesc) {
-                case "object":
-                    fieldDesc = fieldDesc as FieldDescType;
-                    if (!fieldDesc.allowNull) {
-                        requiredFields.push(field);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-        this.requiredFields = requiredFields;
-        return requiredFields;
-    }
-
-    // validateRequiredFields validates the non-null field-values, i.e. allowNull === false.
-    validateRequiredFields(doc: T): ValidateResponseType {
-        const errors: MessageObject = {};
-        const reqFields = this.computeRequiredFields()
-        if (reqFields.length < 1) {
-            errors["message"] = "No field validation requirements specified"
-            return {
-                ok: true,
-                errors,
-            };
-        }
-        // validate required field-values
-        for (const field of reqFields) {
-            if (!(doc as unknown as ObjectType)[field]) {
-                errors[field] = `Field: ${field} is required (not-null)`;
-            }
-        }
-        if (!isEmptyObject(errors)) {
-            return {
-                ok: false,
-                errors,
-            }
-        }
-        return {
-            ok: true,
-            errors,
-        }
     }
 
     // ***** helper methods *****
@@ -629,7 +573,8 @@ export class Model<T extends BaseModelType> {
         }
     }
 
-    async getStream(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<AsyncIterable<Document>> {
+    // Work-in-progress, not currently used
+    async getStream(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<FindCursor<Document>> {
         // get stream of document(s), returning a cursor or error
         try {
             // model specific params

@@ -88,7 +88,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     });
 
     await mcTest({
-        name    : "should return unique-error [existError or updateError] for updating documents by Ids:",
+        name    : "should return unique-error [recordExist or updateError] for updating documents by Ids:",
         testFunc: async () => {
             crudParams.coll = groupCollUpdate
             crudParams.actionParams = [GroupUpdateRecordById]
@@ -115,7 +115,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
             const res = await GroupModel.save(crudParams, crudParamOptions);
             console.log("create-result: ", res);
             assertEquals(res.code === "recordExist" || res.code === "updateError", true, `create-task should return recordExist`);
-            assertEquals(res.code !== "success", true, `create-task should return existError or updateError`);
+            assertEquals(res.code !== "success", true, `create-task should return recordExist or updateError`);
         }
     });
 

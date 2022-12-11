@@ -46,7 +46,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
     });
 
     await mcTest({
-        name    : "should delete record by Id and return success or notFound[delete-record-method]:",
+        name    : "should delete record by Id and return success [delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = deleteColl
             crudParams.docIds = [DeleteAuditById]
@@ -54,13 +54,13 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const crud = newDeleteRecord(crudParams, crudParamOptions);
             const res = await crud.deleteRecord()
             console.log("delete-by-id-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
+            const resCode = res.code === "success"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
         }
     });
 
     await mcTest({
-        name    : "should delete record by Ids and return success or notFound[delete-record-method]:",
+        name    : "should delete record by Ids and return success [delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = deleteColl
             crudParams.docIds = DeleteAuditByIds
@@ -68,13 +68,13 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const crud = newDeleteRecord(crudParams, crudParamOptions);
             const res = await crud.deleteRecord()
             console.log("delete-by-ids-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
+            const resCode = res.code === "success"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
         }
     });
 
     await mcTest({
-        name    : "should delete records by query-params and return success or notFound[delete-record-method]:",
+        name    : "should delete records by query-params and return success[delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = deleteColl
             crudParams.docIds = []
@@ -82,7 +82,7 @@ import { appDb, auditDb, dbOptions } from "./config/secure/config.ts";
             const crud = newDeleteRecord(crudParams, crudParamOptions);
             const res = await crud.deleteRecord()
             console.log("delete-by-params-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
+            const resCode = res.code === "success"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
         }
     });

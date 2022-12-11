@@ -1,7 +1,7 @@
 import { assertEquals, mcTest, postTestResult, } from "../../test_deps.ts";
 import { CrudParamsType, newDbMongo, AuditType } from "../../src/index.ts";
 import {
-    DeleteGroupById, DeleteGroupByIds, DeleteGroupByParams, groupColl, groupCollDelete, GroupModel
+    DeleteGroupById, DeleteGroupByIds, DeleteGroupByParams, groupCollDelete, groupCollDeleteAll, GroupModel
 } from "./testData.ts";
 import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
@@ -20,7 +20,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
         appDb      : appDbHandle,
         dbClient   : appDbClient,
         dbName     : appDb.database || "",
-        coll       : groupColl,
+        coll       : groupCollDelete,
         userInfo   : testUserInfo,
         docIds     : [],
         queryParams: {},
@@ -32,41 +32,55 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     crudParamOptions.auditColl = auditColl;
 
     await mcTest({
-        name    : "should delete record by Id and return success or notFound[delete-record-method]:",
+        name    : "should delete record by Id and return success [delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = groupCollDelete
             crudParams.docIds = [DeleteGroupById]
             crudParams.queryParams = {}
             const res = await GroupModel.delete(crudParams, crudParamOptions);
             console.log("delete-by-id-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
+            const resCode = res.code === "success"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
         }
     });
 
     await mcTest({
-        name    : "should delete record by Ids and return success or notFound[delete-record-method]:",
+        name    : "should delete record by Ids and return success [delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = groupCollDelete;
             crudParams.docIds = DeleteGroupByIds;
             crudParams.queryParams = {};
             const res = await GroupModel.delete(crudParams, crudParamOptions);
             console.log("delete-by-ids-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
-            assertEquals(resCode, true, `res-code should be success or notFound:`);
+            const resCode = res.code === "success"
+            assertEquals(resCode, true, `res-code should be success`);
         }
     });
 
     await mcTest({
-        name    : "should delete records by query-params and return success or notFound[delete-record-method]:",
+        name    : "should delete records by query-params and return success[delete-record-method]:",
         testFunc: async () => {
             crudParams.coll = groupCollDelete
             crudParams.docIds = []
             crudParams.queryParams = DeleteGroupByParams
             const res = await GroupModel.delete(crudParams, crudParamOptions);
             console.log("delete-by-params-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
+            const resCode = res.code === "success"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
+        }
+    });
+
+    await mcTest({
+        name    : "should prevent deletion of all records, only by docIds or queryParams only [delete-record-method]:",
+        testFunc: async () => {
+            crudParams.coll = groupCollDeleteAll
+            crudParams.docIds = []
+            crudParams.queryParams = {}
+            const res = await GroupModel.delete(crudParams, crudParamOptions);
+            console.log("delete-all-res: ", res)
+            const resCode = res.code !== "success"
+            assertEquals(res.code, "removeError", `res-code should be removeError:`);
+            assertEquals(resCode, true, `res-code should be removeError:`);
         }
     });
 

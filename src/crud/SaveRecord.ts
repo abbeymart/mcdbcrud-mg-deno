@@ -346,11 +346,12 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
             });
         }
 
-        // check document/record(s) uniqueness
+        // check document/record(s) uniqueness for each
         const existRes = await this.checkRecExist(this.createItems);
         if (existRes.code !== "success") {
             return existRes;
         }
+
         // control access to security-sensitive collections - optional
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {

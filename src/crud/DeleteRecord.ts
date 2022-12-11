@@ -10,7 +10,7 @@ import { deleteHashCache, Filter, getResMessage, ObjectId, ResponseMessage } fro
 import Crud from "./Crud.ts";
 import {
     AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, CrudResultType,
-    LogDocumentsType, ObjectType, QueryParamsType, SubItemsType, TaskTypes, ValueType,
+    LogDocumentsType, ObjectType, QueryParamsType, TaskTypes, ValueType,
 } from "./types.ts";
 import { FieldDescType, isEmptyObject, RelationActionTypes } from "../orm/index.ts";
 
@@ -195,7 +195,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
     }
 
     // checkRefIntegrityById checks referential integrity for parent-child collections, for the current-document/records.
-    checkRefIntegrity(): ResponseMessage {
+    async checkRefIntegrity(): Promise<ResponseMessage> {
         // required-inputs: parent/child-collections and current item-id/item-name
         if (this.childRelations.length < 1) {
             return getResMessage("success", {
@@ -203,9 +203,9 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             });
         }
         // prevent item delete, if child-collection-items reference itemId
-        const subItems: Array<SubItemsType> = []
+        const subItemCollections: Array<string> = []
         // docIds ref-check
-        const childExist = this.childRelations.some(async (relation) => {
+        for await (const relation of this.childRelations) {
             const targetDbColl = this.appDb.collection(relation.targetColl);
             // include foreign-key/target as the query condition
             const targetField = relation.targetField;
@@ -229,29 +229,19 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             }
             const collItem = await targetDbColl.findOne(query as Filter<ValueType>);
             if (collItem && !isEmptyObject(collItem as unknown as ObjectType)) {
-                subItems.push({
-                    collName          : relation.targetColl,
-                    hasRelationRecords: true,
-                });
-                return true;
-            } else {
-                subItems.push({
-                    collName          : relation.targetColl,
-                    hasRelationRecords: false,
-                });
-                return false;
+                subItemCollections.push(relation.targetColl);
             }
-        });
-        this.subItems = subItems;
-        if (childExist) {
+        }
+        this.subItems = subItemCollections;
+        if (subItemCollections.length > 0) {
             return getResMessage("subItems", {
-                message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
-                value  : subItems as unknown as Array<ObjectType>,
+                message: `A record that contains sub-items cannot be deleted. Delete sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
+                value  : subItemCollections as unknown as Array<ObjectType>,
             });
         } else {
             return getResMessage("success", {
                 message: "no data integrity issue",
-                value  : subItems as unknown as Array<ObjectType>,
+                value  : subItemCollections as unknown as Array<ObjectType>,
             });
         }
     }

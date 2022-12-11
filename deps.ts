@@ -20,3 +20,6 @@ export type {
     FindOptions, AggregateOptions, ConnectOptions, Filter,
     Server, Credential, DBRef, InsertDocument, Document,
 } from "https://deno.land/x/mongo@v0.31.1/mod.ts";
+export { FindCursor } from "https://deno.land/x/mongo@v0.31.1/src/collection/commands/find.ts";
+import _  from "npm:lodash"
+export {_ as lodash};

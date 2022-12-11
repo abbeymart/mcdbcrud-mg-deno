@@ -5,21 +5,20 @@
  */
 
 // Import required module(s)
-import { ObjectId, Document, Filter, ResponseMessage, } from '../../deps.ts';
+import { ObjectId, Filter, ResponseMessage, FindCursor, Document } from '../../deps.ts';
 import { isEmptyObject } from "../orm/index.ts";
 import Crud from './Crud.ts';
 import {
     AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, LogDocumentsType,
     QueryParamsType, TaskTypes, ValueType,
 } from "./types.ts";
-
 class GetRecordStream<T extends BaseModelType> extends Crud<T> {
     constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
     }
 
-    async getRecordStream(): Promise<AsyncIterable<Document>> {
+    async getRecordStream(): Promise<FindCursor<Document>> {
         // check access permission
         if (this.checkAccess) {
             const loginStatusRes = await this.checkLoginStatus();
