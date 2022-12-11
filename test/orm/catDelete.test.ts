@@ -1,7 +1,7 @@
 import { assertEquals, mcTest, postTestResult, } from "../../test_deps.ts";
 import { CrudParamsType, newDbMongo, AuditType } from "../../src/index.ts";
 import {
-    DeleteCategoryById, DeleteCategoryByIds, DeleteCategoryByParams, categoryColl, categoryCollDelete, CategoryModel
+    DeleteCategoryById, categoryColl, categoryCollDelete, CategoryModel
 } from "./testData.ts";
 import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
@@ -44,31 +44,6 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
         }
     });
 
-    await mcTest({
-        name    : "should delete record by Ids and return success or notFound[delete-record-method]:",
-        testFunc: async () => {
-            crudParams.coll = categoryCollDelete;
-            crudParams.docIds = DeleteCategoryByIds;
-            crudParams.queryParams = {};
-            const res = await CategoryModel.delete(crudParams, crudParamOptions);
-            console.log("delete-by-ids-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
-            assertEquals(resCode, true, `res-code should be success or notFound:`);
-        }
-    });
-
-    await mcTest({
-        name    : "should delete records by query-params and return success or notFound[delete-record-method]:",
-        testFunc: async () => {
-            crudParams.coll = categoryCollDelete
-            crudParams.docIds = []
-            crudParams.queryParams = DeleteCategoryByParams
-            const res = await CategoryModel.delete(crudParams, crudParamOptions);
-            console.log("delete-by-params-res: ", res)
-            const resCode = res.code == "success" || res.code == "notFound"
-            assertEquals(resCode, true, `res-code should be success or notFound:`);
-        }
-    });
 
     postTestResult();
     await appDbInstance.closeDb();

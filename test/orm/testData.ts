@@ -41,15 +41,11 @@ export const categoryModel: ModelDescType = {
     collName   : collections.CATEGORIES,
     docDesc    : {
         ...BaseModel,
-        name: {
+        name     : {
             fieldType  : DataTypes.STRING,
             fieldLength: 100,
             allowNull  : false,
         },
-        // groupId  : {
-        //     fieldType: DataTypes.MONGODB_ID,
-        //     allowNull: false,
-        // },
         groupName: {
             fieldType: DataTypes.STRING,
             allowNull: false,
@@ -85,17 +81,6 @@ export const groupRelations: Array<ModelRelationType> = [
         onDelete    : RelationActionTypes.RESTRICT,
         onUpdate    : RelationActionTypes.CASCADE,
     },
-    // {
-    //     sourceColl  : collections.GROUPS,
-    //     targetColl  : collections.CATEGORIES,
-    //     sourceField : "_id",
-    //     targetField : "groupId",
-    //     targetModel : categoryModel,
-    //     relationType: RelationTypes.ONE_TO_MANY,
-    //     foreignField: "groupId",
-    //     onDelete    : RelationActionTypes.RESTRICT,
-    //     onUpdate    : RelationActionTypes.NO_ACTION,
-    // },
 ];
 
 export const categoryRelations: Array<ModelRelationType> = [
@@ -296,72 +281,54 @@ export const DeleteGroupByParams: QueryParamsType = {
 // create record(s)
 
 export const CategoryCreateRec1: CategoryType = {
-    name     : "audits",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Toronto",
+    groupName: "Location",
 }
 
 export const CategoryCreateRec2: CategoryType = {
-    name     : "audits",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Oyo",
+    groupName: "Location",
 }
 
 
 export const CategoryCreateRec3: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Full Time",
+    groupName: "Income",
 }
 
 export const CategoryCreateRec4: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Part Time",
+    groupName: "Income",
 }
 
 export const CategoryCreateRec5: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Groceries",
+    groupName: "Expense",
 }
 
 export const CategoryCreateRec6: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "mcpa",
+    groupName: "Project",
 }
 
 export const CategoryCreateRec7: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "mcship",
+    groupName: "Project",
 }
 
 export const CategoryCreateRec8: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "mcproject",
+    groupName: "Project",
 }
 
 export const CategoryCreateRec9: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Get Auto",
+    groupName: "Activity",
 }
 
 export const CategoryCreateRec10: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "Get Home",
+    groupName: "Activity",
 }
 
 export const CategoryCreateActionParams: Array<CategoryType> = [
@@ -380,16 +347,16 @@ export const CategoryCreateActionParams: Array<CategoryType> = [
 
 export const CategoryUpdateRec1: CategoryType = {
     _id      : "638fd835c77947991e7f7e14",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "mcpa",
+    groupName: "Project",
+    parentId : "",           // TODO: update parentID
 }
 
 export const CategoryUpdateRec2: CategoryType = {
     _id      : "638fd835c77947991e7f7e15",
-    name     : "",
-    groupName: "TBD",
-    priority : 100,
+    name     : "mcship",
+    groupName: "Project",
+    parentId : "",           // TODO: update parentID
 }
 
 export const CategoryUpdateActionParams: Array<CategoryType> = [
@@ -400,13 +367,13 @@ export const CategoryUpdateActionParams: Array<CategoryType> = [
 // TODO: update and delete params, by ids / queryParams
 
 export const CategoryUpdateRecordById: ActionParamType = {
-    "_id" : "638fd873a02862d754fa0247",
-    "name": "Category Name",
+    // "_id" : "638fd873a02862d754fa0247",
+    "name": "mcpa",
 }
 
 export const CategoryUpdateRecordByParam: ActionParamType = {
     "_id" : "638fd873a02862d754fa0248",
-    "name": "Updated Category Name",
+    "name": "mcpa",                                 // TODO: test against unique constraint??
 }
 
 export const UpdateCategoryById = "638fd835c77947991e7f7e11"
@@ -417,26 +384,19 @@ export const UpdateCategoryByIds: Array<string> = [
 ]
 
 export const UpdateCategoryByParams: QueryParamsType = {
-    "logType": "read",
+    "groupName": "Project",
 }
 
 export const GetCategoryById = "638fd565c97d023503c6a0d8"
 export const GetCategoryByIds = ["638fd565c97d023503c6a0d8",
     "638fd565c97d023503c6a0d9"] as Array<string>
 export const GetCategoryByParams: QueryParamsType = {
-    "logType": "create",
+    "groupName": "Project",
 }
 
-export const DeleteCategoryById = "638fd62cd7d613895979da27"
-export const DeleteCategoryByIds: Array<string> = [
-    "638fd62cd7d613895979da28",
-    "638fd62cd7d613895979da29",
-    "638fd62cd7d613895979da2a",
-    "638fd62cd7d613895979da2b",
-]
+export const DeleteGroupById2 = "638fd62cd7d613895979da27"         // TODO: with sub-items in categories collection
 
-export const DeleteCategoryByParams: QueryParamsType = {
-    "logType": "read",
-}
+export const DeleteCategoryById = "638fd62cd7d613895979da27"        // TODO: with sub-items in same collection
+
 
 
