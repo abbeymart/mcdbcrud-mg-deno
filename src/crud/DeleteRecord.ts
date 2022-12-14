@@ -78,6 +78,9 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
             this.queryParams = otherParams;
         }
 
+        console.log("coll-restrict: ", this.collRestrict)
+        console.log("delete-restrict: ", this.deleteRestrict)
+
         // delete / remove item(s) by docId(s) | usually for owner, admin and by role-assignment on collection/collection-documents
         if (this.docIds && this.docIds.length > 0) {
             try {

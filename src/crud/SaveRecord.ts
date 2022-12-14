@@ -446,6 +446,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                 updateMatchedCount += updateResult.matchedCount
                 // optional step, update the child-collections for update-constraints: cascade, setDefault or setNull,
                 // from current and new update-field-values
+                console.log("update-cascade: ", this.updateCascade, this.childRelations)
                 if (this.childRelations.length > 0 && updateResult.modifiedCount > 0) {
                     if (this.updateCascade) {
                         const childRelations = this.childRelations.filter(item => item.onUpdate === RelationActionTypes.CASCADE);
