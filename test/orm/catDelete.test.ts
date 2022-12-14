@@ -1,7 +1,8 @@
 import { assertEquals, mcTest, postTestResult, } from "../../test_deps.ts";
 import { CrudParamsType, newDbMongo, AuditType } from "../../src/index.ts";
 import {
-    DeleteCategoryById, categoryColl, categoryCollDelete, CategoryModel
+    categoryColl, CategoryModel, DeleteCategoryWithSubItemById, DeleteGroupWithCategoriesById,
+    groupColl,
 } from "./testData.ts";
 import { appDb, auditDb, dbOptions } from "../config/secure/config.ts";
 import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
@@ -32,15 +33,29 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
     crudParamOptions.auditColl = auditColl;
 
     await mcTest({
-        name    : "should delete record by Id and return success or notFound[delete-record-method]:",
+        name    : "should return subItem for document with related-child-collection (i.e. foreignKey):",
         testFunc: async () => {
-            crudParams.coll = categoryCollDelete
-            crudParams.docIds = [DeleteCategoryById]
+            crudParams.coll = groupColl
+            crudParams.docIds = [DeleteGroupWithCategoriesById]
             crudParams.queryParams = {}
             const res = await CategoryModel.delete(crudParams, crudParamOptions);
             console.log("delete-by-id-res: ", res)
             const resCode = res.code == "success" || res.code == "notFound"
             assertEquals(resCode, true, `res-code should be success or notFound:`);
+        }
+    });
+
+    await mcTest({
+        name    : "should return subItem for document with sub-items (i.e. parentId):",
+        testFunc: async () => {
+            crudParams.coll = categoryColl
+            crudParams.docIds = [DeleteCategoryWithSubItemById]
+            crudParams.queryParams = {}
+            const res = await CategoryModel.delete(crudParams, crudParamOptions);
+            console.log("delete-by-id-res: ", res)
+            const resCode = res.code == "subItems" || res.code == "notFound"
+            assertEquals(resCode, true, `res-code should be subItems:`);
+            assertEquals(resCode, "subItems", `res-code should be subItems:`);
         }
     });
 

@@ -228,20 +228,19 @@ export class Crud<T extends BaseModelType> {
     // checkRecExist method checks if items/documents exist: document uniqueness
     async checkRecExist(actionParams: ActionParamsType<T>, currentRecs: Array<T> = []): Promise<ResponseMessage> {
         try {
-            const existParams = this.computeExistParams(actionParams, currentRecs);
+            const existParams = this.computeExistParams(actionParams, currentRecs) || [];
             // check if existParams condition is specified
             if (existParams.length < 1 || this.existParams.length < 1) {
                 return getResMessage("success", {
                     message: "No data integrity condition specified",
                 });
             }
-
             // check uniqueness of the actionParams, i.e. for multiple save-documents
             let docErrMsg = "";
             for (const actionExistParams of this.existParams) {
                 for (const existItem of actionExistParams) {
-                    const documents = lodash.filter(actionParams, existItem) as Array<T>;
-                    if (documents.length > 1) {
+                    const documents = lodash.filter(actionParams, existItem) as Array<T> || [];
+                    if (documents && documents.length > 1) {
                         // capture duplicate document attributes
                         Object.entries(existItem)
                             .forEach(([key, value]) => {
@@ -304,7 +303,7 @@ export class Crud<T extends BaseModelType> {
             if (validDb.code !== "success") {
                 return validDb;
             }
-            let currentRecords: Array<Document>;
+            let currentRecords: Array<Document> = [];
             const appDbColl = this.appDb.collection(this.coll);
             switch (by.toLowerCase()) {
                 case "id": {
@@ -375,7 +374,7 @@ export class Crud<T extends BaseModelType> {
     computeExistParam(actionParam: T, currentRec = {}): ExistParamsType {
         // set the existParams for create or update action to determine document uniqueness
         const existParam: ExistParamsType = [];
-        if (this.uniqueFields.length < 1) {
+        if (!this.uniqueFields || this.uniqueFields.length < 1) {
             return [];
         }
         for (const fields of this.uniqueFields) {
@@ -388,7 +387,7 @@ export class Crud<T extends BaseModelType> {
                 }
                 // set unique item value for the new/updated actionParam/document
                 const fieldValue = (actionParam as unknown as ObjectType)[field];
-                if (field.toLowerCase().endsWith("id") && (fieldValue as string) !== "" &&
+                if (field.toLowerCase().endsWith("id") && fieldValue && (fieldValue as string) !== "" &&
                     (fieldValue as string).length <= 24) {
                     uniqueObj[field] = new ObjectId(fieldValue as string);
                 } else {
@@ -429,14 +428,15 @@ export class Crud<T extends BaseModelType> {
     computeExistParams(actionParams: ActionParamsType<T>, currentRecs: Array<T> = []): ActionExistParamsType {
         // set the existParams for create or update action to determine documents uniqueness
         const existParams: ActionExistParamsType = [];
-        if (this.uniqueFields.length < 1) {
+        if (!this.uniqueFields || this.uniqueFields.length < 1) {
             this.existParams = [];
             return [];
         }
         for (const actParam of actionParams) {
-            const currentRec = currentRecs.find(rec => rec["_id"] === actParam["_id"]);
-            const existParam = this.computeExistParam(actParam, currentRec);
-            if (existParam.length > 0) {
+            const currentRec = currentRecs.length > 0 ? currentRecs.find(rec => rec["_id"] === actParam["_id"]) : {};
+            const existParam = currentRec && !isEmptyObject(currentRec) ? this.computeExistParam(actParam, currentRec) :
+                this.computeExistParam(actParam);
+            if (existParam && existParam.length > 0) {
                 existParams.push(existParam);
             }
         }

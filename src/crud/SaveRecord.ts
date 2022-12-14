@@ -351,7 +351,6 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
         if (existRes.code !== "success") {
             return existRes;
         }
-
         // control access to security-sensitive collections - optional
         if ((this.coll === this.userColl || this.coll === this.accessColl) && !this.isAdmin) {
             return getResMessage("unAuthorized", {
@@ -604,7 +603,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                     logRes      : logRes,
                 }
                 return getResMessage("success", {
-                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
+                    message: `Record(s) updated successfully: ${updateCount} of ${this.actionParams.length} documents updated.`,
                     value  : crudResult as ObjectType,
                 });
             }
@@ -833,7 +832,7 @@ class SaveRecord<T extends BaseModelType> extends Crud<T> {
                     logRes      : logRes,
                 };
                 return getResMessage("success", {
-                    message: `Record(s) updated successfully: ${updateCount} of ${updateMatchedCount} documents updated.`,
+                    message: `Record(s) updated successfully: ${updateCount} of ${this.actionParams.length} documents updated.`,
                     value  : crudResult as ObjectType,
                 });
             }

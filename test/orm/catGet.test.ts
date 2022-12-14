@@ -94,8 +94,8 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
             assertNotEquals(res.code, "unAuthorized", `response-code should be: success not unAuthorized`);
-            assertEquals(recLen > 20, true, `response-value-records-length should be: > 20`);
-            assertEquals(recCount > 20, true, `response-value-stats-recordsCount should be:  > 20`);
+            assertEquals(recLen > 5, true, `response-value-records-length should be: > 5`);
+            assertEquals(recCount > 5, true, `response-value-stats-recordsCount should be:  > 5`);
         }
     });
 
@@ -106,7 +106,7 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
             crudParams.docIds = []
             crudParams.queryParams = {}
             crudParams.skip = 0
-            crudParams.limit = 20
+            crudParams.limit = 5
             crudParamOptions.getAllRecords = true
             const res = await CategoryModel.get(crudParams, crudParamOptions);
             const resValue = res.value as unknown as GetResultType<AuditType>
@@ -114,8 +114,8 @@ import { auditColl, crudParamOptions, testUserInfo } from "../testData.ts";
             const recCount = resValue.stats?.recordsCount || 0
             assertEquals(res.code, "success", `response-code should be: success`);
             assertNotEquals(res.code, "unAuthorized", `response-code should be: success not unAuthorized`);
-            assertEquals(recLen, 20, `response-value-records-length should be: 20`);
-            assertEquals(recCount, 20, `response-value-stats-recordsCount should be: 20`);
+            assertEquals(recLen, 5, `response-value-records-length should be: 5`);
+            assertEquals(recCount, 5, `response-value-stats-recordsCount should be: 5`);
         }
     });
 

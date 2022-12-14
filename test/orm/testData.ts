@@ -112,7 +112,7 @@ const groupOptions: ModelCrudOptionsType = {
 const categoryOptions: ModelCrudOptionsType = {
     relations   : centralRelations,
     uniqueFields: [
-        ["name", "groupId",],
+        ["name", "parentId",],
         ["name", "groupName",],
     ]
 };
@@ -224,14 +224,11 @@ export const GroupUpdateActionParams: Array<GroupType> = [
     GroupUpdateRec2,
 ]
 
-// TODO: update and delete params, by ids / queryParams
-
 // change Project to Projects
 export const GroupUpdateRecordById: GroupType = {
     // "_id" : "6393ef7f9a2eeb643b67e7d4",
     "name": "Users",
 }
-
 
 // change Location to Locations
 export const GroupUpdateRecordByParam: GroupType = {
@@ -276,7 +273,6 @@ export const DeleteGroupByParams: QueryParamsType = {
 
 
 // TODO: categories collection test-data
-
 
 // create record(s)
 
@@ -344,59 +340,79 @@ export const CategoryCreateActionParams: Array<CategoryType> = [
     CategoryCreateRec10,
 ]
 
+export const CategoryCreateActionParamsUniqueConstraint = CategoryCreateRec2;
 
 export const CategoryUpdateRec1: CategoryType = {
-    _id      : "638fd835c77947991e7f7e14",
-    name     : "mcpa",
-    groupName: "Project",
-    parentId : "",           // TODO: update parentID
+    _id      : "63992eb9c97fa04b78e8f046",
+    name     : "Toronto Updated",
+    groupName: "Location",
+    parentId : "63992eb9c97fa04b78e8f047",
 }
 
 export const CategoryUpdateRec2: CategoryType = {
-    _id      : "638fd835c77947991e7f7e15",
-    name     : "mcship",
-    groupName: "Project",
-    parentId : "",           // TODO: update parentID
+    _id      : "63992eb9c97fa04b78e8f047",
+    name     : "Oyo Updated",
+    groupName: "Location",
+    parentId : "",
 }
+
+export const CategoryUpdateActionParamsUniqueConstraint: CategoryType = {
+    _id      : "63992eb9c97fa04b78e8f04a",      // ID for Groceries
+    name     : "Toronto Updated",
+    groupName: "Location",
+    parentId : "63992eb9c97fa04b78e8f047",
+};
 
 export const CategoryUpdateActionParams: Array<CategoryType> = [
     CategoryUpdateRec1,
     CategoryUpdateRec2,
 ]
 
-// TODO: update and delete params, by ids / queryParams
+// TODO: update and delete params, by ids / queryParams | test update-cascade
 
 export const CategoryUpdateRecordById: ActionParamType = {
     // "_id" : "638fd873a02862d754fa0247",
     "name": "mcpa",
 }
-
 export const CategoryUpdateRecordByParam: ActionParamType = {
     "_id" : "638fd873a02862d754fa0248",
     "name": "mcpa",                                 // TODO: test against unique constraint??
 }
-
 export const UpdateCategoryById = "638fd835c77947991e7f7e11"
 export const UpdateCategoryByIds: Array<string> = [
     "638fd835c77947991e7f7e11",
     "638fd835c77947991e7f7e12",
     "638fd835c77947991e7f7e13",
 ]
-
 export const UpdateCategoryByParams: QueryParamsType = {
     "groupName": "Project",
 }
 
-export const GetCategoryById = "638fd565c97d023503c6a0d8"
-export const GetCategoryByIds = ["638fd565c97d023503c6a0d8",
-    "638fd565c97d023503c6a0d9"] as Array<string>
+export const GetCategoryById = "63992eb9c97fa04b78e8f047"
+export const GetCategoryByIds = ["63992eb9c97fa04b78e8f047",
+    "63992eb9c97fa04b78e8f046"] as Array<string>
 export const GetCategoryByParams: QueryParamsType = {
     "groupName": "Project",
 }
 
-export const DeleteGroupById2 = "638fd62cd7d613895979da27"         // TODO: with sub-items in categories collection
+export const GroupUpdateCategoryCascade: GroupType = {
+    _id : "6393ef7f9a2eeb643b67e7da",
+    name: "Incomes",
+}
 
-export const DeleteCategoryById = "638fd62cd7d613895979da27"        // TODO: with sub-items in same collection
+export const CategoryUpdateCategoryCascade: CategoryType = {
+    _id      : "63992eb9c97fa04b78e8f047",
+    name     : "Oyo Updated2",
+    groupName: "Location",
+    parentId : "",
+}
+
+// TODO: test delete constraint group-category, update ID
+export const DeleteGroupWithCategoriesById = "6393ef7f9a2eeb643b67e7d5";
+
+// TODO: with sub-items in categories collection, i.e. same collection, update ID
+export const DeleteCategoryWithSubItemById = "63992eb9c97fa04b78e8f047";
+
 
 
 
