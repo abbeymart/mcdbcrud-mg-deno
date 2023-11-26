@@ -1,52 +1,22 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16, 2023-11-22
  * @Company: mConnect.biz | @License: MIT
  * @Description: get stream of records, by docIds, queryParams, all | cache-in-memory
  */
 
 // Import required module(s)
-import { ObjectId, Filter, ResponseMessage, FindCursor, Document } from '../../deps.ts';
-import { isEmptyObject } from "../orm/index.ts";
-import Crud from './Crud.ts';
-import {
-    AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, LogDocumentsType,
-    QueryParamsType, TaskTypes, ValueType,
-} from "./types.ts";
-class GetRecordStream<T extends BaseModelType> extends Crud<T> {
-    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+import { ObjectId } from 'mongodb';
+import { isEmptyObject } from "../orm";
+import Crud from './Crud';
+import {CrudOptionsType, CrudParamsType, LogDocumentsType,} from "./types";
+
+class GetRecordStream extends Crud {
+    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
     }
 
-    async getRecordStream(): Promise<FindCursor<Document>> {
-        // check access permission
-        if (this.checkAccess) {
-            const loginStatusRes = await this.checkLoginStatus();
-            if (loginStatusRes.code !== "success") {
-                throw new Error(loginStatusRes.message);
-            }
-            let accessRes: ResponseMessage;
-            // loginStatusRes.value.isAdmin
-            if (this.checkAccess && !(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (this.docIds && this.docIds.length > 0) {
-                    accessRes = await this.taskPermissionById(TaskTypes.READ);
-                    if (accessRes.code !== "success") {
-                        throw new Error(accessRes.message);
-                    }
-                } else if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                    accessRes = await this.taskPermissionByParams(TaskTypes.READ);
-                    if (accessRes.code !== "success") {
-                        throw new Error(accessRes.message);
-                    }
-                } else {
-                    const accessRes = await this.checkTaskAccess(TaskTypes.READ);
-                    if (accessRes.code != "success") {
-                        throw new Error(accessRes.message);
-                    }
-                }
-            }
-        }
-
+    async getRecordStream(): Promise<AsyncIterable<Document>> {
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -57,11 +27,6 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
         if (auditDbCheck.code !== "success") {
             // return auditDbCheck;
             throw new Error(auditDbCheck.message);
-        }
-        const accessDbCheck = this.checkDb(this.accessDb);
-        if (accessDbCheck.code !== "success") {
-            // return accessDbCheck;
-            throw new Error(accessDbCheck.message);
         }
 
         // set maximum limit and default values per query
@@ -79,35 +44,23 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
         if ((this.logRead || this.logCrud) && this.queryParams && !isEmptyObject(this.queryParams)) {
             const logDocuments: LogDocumentsType = {
                 queryParam: this.queryParams,
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            await this.transLog.readLog(logParams, this.userId);
+            }
+            await this.transLog.readLog(this.coll, logDocuments, this.userId);
         } else if ((this.logRead || this.logCrud) && this.docIds && this.docIds.length > 0) {
             const logDocuments: LogDocumentsType = {
                 docIds: this.docIds,
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            await this.transLog.readLog(logParams, this.userId);
-        } else if (this.logRead || this.logCrud) {
+            }
+            await this.transLog.readLog(this.coll, logDocuments, this.userId);
+        } else if(this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            await this.transLog.readLog(logParams, this.userId);
+            }
+            await this.transLog.readLog(this.coll, logDocuments, this.userId);
         }
 
         // exclude _id, if present, from the queryParams
         if (this.queryParams && Object.keys(this.queryParams).length > 0) {
-            const qParams = this.queryParams;
+            const qParams: any = this.queryParams;
             const {_id, ...otherParams} = qParams; // exclude _id, if present
             this.queryParams = otherParams;
         }
@@ -118,12 +71,13 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
                 // id(s): convert string to ObjectId
                 const docIds = this.docIds.map(id => new ObjectId(id));
                 // use / activate database
-                const appDbColl = this.appDb.collection<T>(this.coll);
-                const qParams: QueryParamsType = {_id: {$in: docIds}};
-                return appDbColl.find(qParams as Filter<ValueType>)
+                const appDbColl = this.appDb.collection(this.coll);
+                return appDbColl.find({_id: {$in: docIds}})
                     .skip(this.skip)
                     .limit(this.limit)
-                    .sort(this.sortParams);
+                    .project(this.projectParams)
+                    .sort(this.sortParams)
+                    .stream();
             } catch (error) {
                 console.error(error);
                 throw new Error(`notFound: ${error.message}`);
@@ -132,11 +86,13 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
         if (this.queryParams && Object.keys(this.queryParams).length > 0) {
             try {
                 // use / activate database
-                const appDbColl = this.appDb.collection<T>(this.coll);
-                return appDbColl.find(this.queryParams as Filter<ValueType>)
+                const appDbColl = this.appDb.collection(this.coll);
+                return appDbColl.find(this.queryParams)
                     .skip(this.skip)
                     .limit(this.limit)
+                    .project(this.projectParams)
                     .sort(this.sortParams)
+                    .stream();
             } catch (error) {
                 console.error(error);
                 throw new Error(`notFound: ${error.message}`);
@@ -149,16 +105,18 @@ class GetRecordStream<T extends BaseModelType> extends Crud<T> {
             return appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
+                .project(this.projectParams)
                 .sort(this.sortParams)
+                .stream();
         } catch (error) {
             console.error(error);
-            throw new Error(`${error.message}`);
+            throw new Error(`notFound: ${error.message}`);
         }
     }
 }
 
 // factory function/constructor
-function newGetRecordStream<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+function newGetRecordStream(params: CrudParamsType, options: CrudOptionsType = {}) {
     return new GetRecordStream(params, options);
 }
 

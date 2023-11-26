@@ -1,26 +1,28 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16, 2022-12-06
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16, 2023-11-23
  * Updated 2018-04-08, prototype-to-class
  * @Company: mConnect.biz | @License: MIT
  * @Description: delete one or more records / documents by docIds or queryParams
  */
 
 // Import required module/function(s)
-import { deleteHashCache, Filter, getResMessage, ObjectId, ResponseMessage } from "../../deps.ts";
-import Crud from "./Crud.ts";
+import { ObjectId, } from "mongodb";
+import { getResMessage, ResponseMessage } from "@mconnect/mcresponse";
+import { isEmptyObject } from "../orm";
+import { deleteHashCache, QueryHashCacheParamsType } from "@mconnect/mccache";
+import Crud from "./Crud";
 import {
-    AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, CrudResultType,
-    LogDocumentsType, ObjectType, QueryParamsType, TaskTypes, ValueType,
-} from "./types.ts";
-import { FieldDescType, isEmptyObject, RelationActionTypes } from "../orm/index.ts";
+    CrudOptionsType, CrudParamsType, CrudResultType, LogDocumentsType, ObjectRefType, SubItemsType
+} from "./types";
+import { RelationActionTypes } from "../orm";
 
-class DeleteRecord<T extends BaseModelType> extends Crud<T> {
+class DeleteRecord extends Crud {
     protected collRestrict: boolean;
     protected deleteRestrict: boolean;
     protected deleteSetNull: boolean;
     protected deleteSetDefault: boolean;
 
-    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
         this.currentRecs = [];
@@ -30,34 +32,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         this.deleteSetDefault = false;
     }
 
-    async deleteRecord(): Promise<ResponseMessage> {
-        // check access permission
-        if (this.checkAccess) {
-            const loginStatusRes = await this.checkLoginStatus();
-            if (loginStatusRes.code !== "success") {
-                return loginStatusRes;
-            }
-            let accessRes: ResponseMessage;
-            // loginStatusRes.value.isAdmin
-            if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (this.docIds && this.docIds.length > 0) {
-                    accessRes = await this.taskPermissionById(TaskTypes.DELETE);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                    accessRes = await this.taskPermissionByParams(TaskTypes.DELETE);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else {
-                    const accessRes = await this.checkTaskAccess(TaskTypes.DELETE);
-                    if (accessRes.code != "success") {
-                        return accessRes;
-                    }
-                }
-            }
-        }
+    async deleteRecord(): Promise<ResponseMessage<any>> {
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -67,19 +42,13 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         if (auditDbCheck.code !== "success") {
             return auditDbCheck;
         }
-        const accessDbCheck = this.checkDb(this.accessDb);
-        if (accessDbCheck.code !== "success") {
-            return accessDbCheck;
-        }
 
         // for queryParams, exclude _id, if present
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
-            const {_id, ...otherParams} = this.queryParams;
+            let querySpec = this.queryParams;
+            const {_id, ...otherParams} = querySpec;
             this.queryParams = otherParams;
         }
-
-        console.log("coll-restrict: ", this.collRestrict)
-        console.log("delete-restrict: ", this.deleteRestrict)
 
         // delete / remove item(s) by docId(s) | usually for owner, admin and by role-assignment on collection/collection-documents
         if (this.docIds && this.docIds.length > 0) {
@@ -104,7 +73,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 }
                 // parent-child integrity check, multiple collections
                 if (this.deleteRestrict) {
-                    const refIntegrity = await this.checkRefIntegrity();
+                    const refIntegrity = await this.checkRefIntegrityById();
                     if (refIntegrity.code !== "success") {
                         return refIntegrity;
                     }
@@ -141,7 +110,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 }
                 // parent-child integrity check, multiple collections
                 if (this.deleteRestrict) {
-                    const refIntegrity = await this.checkRefIntegrity();
+                    const refIntegrity = await this.checkRefIntegrityByParams();
                     if (refIntegrity.code !== "success") {
                         return refIntegrity;
                     }
@@ -154,15 +123,14 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
                 });
             }
         }
-
         // could not remove document
         return getResMessage("removeError", {
-            message: "Unable to perform the requested action(s), due to incomplete/incorrect delete conditions. Delete task permitted by ID and queryParams only. ",
+            message: "Unable to perform the requested action(s), due to incomplete/incorrect delete conditions. ",
         });
     }
 
     // checkSubItemById checks referential integrity for same collection, by id
-    async checkSubItemById(): Promise<ResponseMessage> {
+    async checkSubItemById(): Promise<ResponseMessage<any>> {
         // check if any/some of the collection contain at least a sub-item/document
         const appDbColl = this.appDb.collection(this.coll);
         const docWithSubItems = await appDbColl.findOne({
@@ -182,13 +150,13 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
     }
 
     // checkSubItemByParams checks referential integrity for same collection, by queryParam
-    async checkSubItemByParams(): Promise<ResponseMessage> {
+    async checkSubItemByParams(): Promise<ResponseMessage<any>> {
         // check if any/some of the collection contain at least a sub-item/document
         if (this.queryParams && !isEmptyObject(this.queryParams)) {
             await this.getCurrentRecords("queryParams")
             this.docIds = [];          // reset docIds instance value
-            this.currentRecs.forEach((item: T) => {
-                this.docIds.push(item["_id"] as string);
+            this.currentRecs.forEach((item: ObjectRefType) => {
+                this.docIds.push(item["_id"]);
             });
             return await this.checkSubItemById();
         }
@@ -197,212 +165,124 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         })
     }
 
-    // checkRefIntegrityById checks referential integrity for parent-child collections, for the current-document/records.
-    async checkRefIntegrity(): Promise<ResponseMessage> {
+    // checkRefIntegrityById checks referential integrity for parent-child collections, by document-Id
+    async checkRefIntegrityById(): Promise<ResponseMessage<any>> {
         // required-inputs: parent/child-collections and current item-id/item-name
         if (this.childRelations.length < 1) {
             return getResMessage("success", {
                 message: "no data integrity condition specified or required",
             });
         }
-        // prevent item delete, if child-collection-items reference itemId
-        const subItemCollections: Array<string> = []
-        // docIds ref-check
-        for await (const relation of this.childRelations) {
-            const targetDbColl = this.appDb.collection(relation.targetColl);
-            // include foreign-key/target as the query condition
-            const targetField = relation.targetField;
-            const sourceField = relation.sourceField;
-            const query: ObjectType = {}
-            if (sourceField.toLowerCase().endsWith("id")) {
-                const sourceFieldValues = this.currentRecs.map((item) => {
-                    const idValue = (item as unknown as ObjectType)[sourceField];
-                    return (idValue !== "" && (idValue as string).length <= 24) ? new ObjectId(idValue as string) :
-                        idValue;
-                });
-                query[targetField] = {
-                    $in: sourceFieldValues,
-                };
-            } else {
-                // other source-fields besides _id & fields endsWith id/Id/ID
-                const sourceFieldValues = this.currentRecs.map((item) => (item as unknown as ObjectType)[sourceField]);
-                query[targetField] = {
-                    $in: sourceFieldValues,
-                };
-            }
-            const collItem = await targetDbColl.findOne(query as Filter<ValueType>);
-            if (collItem && !isEmptyObject(collItem as unknown as ObjectType)) {
-                subItemCollections.push(relation.targetColl);
-            }
-        }
-        this.subItems = subItemCollections;
-        if (subItemCollections.length > 0) {
-            return getResMessage("subItems", {
-                message: `A record that contains sub-items cannot be deleted. Delete sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
-                value  : subItemCollections as unknown as Array<ObjectType>,
+        if (this.docIds.length > 0) {
+            // prevent item delete, if child-collection-items reference itemId
+            let subItems: Array<SubItemsType> = []
+            // docIds ref-check
+            const childExist = this.childRelations.some(async (relation) => {
+                const targetDbColl = this.appDb.collection(relation.targetColl);
+                // include foreign-key/target as the query condition
+                const targetField = relation.targetField;
+                const sourceField = relation.sourceField;
+                const query: ObjectRefType = {}
+                if (sourceField === "_id") {
+                    query[targetField] = {
+                        $in: this.docIds,
+                    }
+                } else {
+                    // other source-fields besides _id
+                    const sourceFieldValues = this.currentRecs.map((item: ObjectRefType) => item[sourceField]);
+                    query[targetField] = {
+                        $in: sourceFieldValues,
+                    }
+                }
+                const collItem = targetDbColl.find(query);
+                if (collItem && !isEmptyObject(collItem)) {
+                    subItems.push({
+                        collName          : relation.targetColl,
+                        hasRelationRecords: true,
+                    });
+                    return true;
+                } else {
+                    subItems.push({
+                        collName          : relation.targetColl,
+                        hasRelationRecords: false,
+                    });
+                    return false;
+                }
             });
+            this.subItems = subItems;
+            if (childExist) {
+                return getResMessage("subItems", {
+                    message: `A record that contains sub-items cannot be deleted. Delete/remove the sub-items [from ${this.childColls.join(", ")} collection(s)], first.`,
+                    value  : subItems,
+                });
+            } else {
+                return getResMessage("success", {
+                    message: "no data integrity issue",
+                    value  : subItems,
+                });
+            }
         } else {
             return getResMessage("success", {
-                message: "no data integrity issue",
-                value  : subItemCollections as unknown as Array<ObjectType>,
+                message: "docIds is required for integrity check/validation",
             });
         }
     }
 
-    async removeRecordById(): Promise<ResponseMessage> {
+    // checkRefIntegrityByParams checks referential integrity for parent-child collections, by queryParams
+    async checkRefIntegrityByParams(): Promise<ResponseMessage<any>> {
+        // required-inputs: parent/child-collections and current item-id/item-name
+        if (this.queryParams && !isEmptyObject(this.queryParams)) {
+            await this.getCurrentRecords("queryParams")
+            this.docIds = [];
+            this.currentRecs.forEach((item: ObjectRefType) => {
+                this.docIds.push(item["_id"]);
+            });
+            return await this.checkRefIntegrityById();
+        }
+        return getResMessage("paramsError", {
+            message: "queryParams is required",
+        })
+    }
+
+    async removeRecordById(): Promise<ResponseMessage<any>> {
+        if (this.docIds.length < 1) {
+            return getResMessage("deleteError", {message: "Valid document-ID(s) required"});
+        }
         // delete/remove records and log in audit-collection
         try {
-            // check current documents prior to update
-            const currentRecRes = await this.getCurrentRecords("id");
-            if (currentRecRes.code !== "success") {
-                return currentRecRes;
-            }
-            const currentRecs = currentRecRes.value as unknown as Array<T>;
+            const appDbColl = this.dbClient.db(this.dbName).collection(this.coll);
             // id(s): convert string to ObjectId
             const docIds = this.docIds.map(id => new ObjectId(id));
-            let errMsg = "";
-            const appDbColl = this.appDb.collection(this.coll);
-            const qParams: QueryParamsType = {_id: {$in: docIds,}};
-            const removed = await appDbColl.deleteMany(qParams as Filter<ValueType>);
-            if (!removed || removed < 1) {
-                throw new Error(`Unable to delete the specified records [${removed} of ${docIds.length} removed].`);
+            const removed = await appDbColl.deleteMany({
+                _id: {
+                    $in: docIds,
+                }
+            },);
+            if (!removed.acknowledged || removed.deletedCount < 1) {
+                throw new Error(`document-remove-error [${removed.deletedCount} of ${this.currentRecs.length} removed]`)
             }
-            // optional, update child-collection-documents for setDefault and setNull/initialize-value?', i.e. if this.deleteSetDefault or this.deleteSetNull
-            for await (const currentRec of currentRecs) {
-                if (this.childRelations.length < 1) {
-                    break;
-                }
-                // validate deleted document vs prior-currentDocument
-                const qParams = {_id: currentRec._id} as Filter<T>;
-                const undeletedRec = await appDbColl.findOne(qParams);
-                if (undeletedRec) {
-                    continue;
-                }
-                if (this.deleteSetDefault) {
-                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine default-action
-                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                            // handle as error
-                            const recErrMsg = "Target model is required to complete the set-default-task";
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            continue;
-                        }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const targetColl = cItem.targetModel?.collName || cItem.targetColl;
-                        // compute default values for the targetFields
-                        const docDefaultValue = await this.computeDefaultValues(targetDocDesc);
-                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;   // current value of the targetField
-                        const fieldDefaultValue = docDefaultValue[targetField] || null; // new value (default-value) of the targetField
-                        if (currentFieldValue === fieldDefaultValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField default value | check if setDefault is permissible for the targetField
-                        let targetFieldDesc = targetDocDesc[targetField];   // target-field-type
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-default-field
-                                if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
-                                    const recErrMsg = "Target/foreignKey default-value is required to complete the set-default task";
-                                    errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                    continue;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: ObjectType = {};    // to determine the current-value in the target-field
-                        const updateSet: ObjectType = {};      // to set the new-default-value in the target-field
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = fieldDefaultValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} set to be updated].`;
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                        }
-                    }
-                } else if (this.deleteSetNull) {
-                    const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
-                    for await (const cItem of childRelations) {
-                        const sourceField = cItem.sourceField;
-                        const targetField = cItem.targetField;
-                        // check if targetModel is defined/specified, required to determine allowNull-action
-                        if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                            // handle as error
-                            const recErrMsg = "Target model is required to complete the set-null-task";
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            continue;
-                        }
-                        const targetDocDesc = cItem.targetModel?.docDesc || {};
-                        const initializeDocValue = this.computeInitializeValues(targetDocDesc)
-                        const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;  // current value of the targetField
-                        const nullFieldValue = initializeDocValue[targetField] || null; // new value (null-value) of the targetField
-                        if (currentFieldValue === nullFieldValue) {
-                            // skip update
-                            continue;
-                        }
-                        // validate targetField null value | check if allowNull is permissible for the targetField
-                        const targetColl = cItem.targetModel?.collName || cItem.targetColl;
-                        let targetFieldDesc = targetDocDesc[targetField];
-                        switch (typeof targetFieldDesc) {
-                            case "object":
-                                targetFieldDesc = targetFieldDesc as FieldDescType
-                                // handle non-null-field
-                                if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
-                                    const recErrMsg = "Target/foreignKey allowNull is required to complete the set-null task";
-                                    errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                    continue;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        const updateQuery: ObjectType = {};
-                        const updateSet: ObjectType = {};
-                        updateQuery[targetField] = currentFieldValue;
-                        updateSet[targetField] = nullFieldValue;
-                        const TargetColl = this.appDb.collection(targetColl);
-                        const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                        if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                            const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated].`;
-                            errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                        }
-                    }
-                }
+            // perform delete cache and audit-log tasks
+            const cacheParams: QueryHashCacheParamsType = {
+                key : this.cacheKey,
+                hash: this.coll,
+                by  : "hash",
             }
-            // perform cache and audi-log tasks
-            if (removed) {
-                // delete cache
-                deleteHashCache({key: this.cacheKey, hash: this.coll});
-                // check the audit-log settings - to perform audit-log
-                let logRes: ResponseMessage = {
-                    code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: {}
-                };
-                if (this.logDelete || this.logCrud) {
-                    const logDocuments: LogDocumentsType = {
-                        collDocuments: this.currentRecs,
-                    };
-                    const logParams: AuditLogOptionsType = {
-                        collName     : this.coll,
-                        collDocuments: logDocuments,
-                    }
-                    logRes = await this.transLog.deleteLog(this.userId, logParams);
+            deleteHashCache(cacheParams);
+            let logRes = {code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: null};
+            if (this.logDelete || this.logCrud) {
+                const logDocuments: LogDocumentsType = {
+                    collDocuments: this.currentRecs,
                 }
-                const deleteResultValue: CrudResultType<T> = {
-                    recordsCount: removed,
-                    logRes,
-                }
-                return getResMessage("success", {
-                    message: `Document/record deleted successfully - ${removed} of ${docIds.length} removed.`,
-                    value  : deleteResultValue as unknown as ObjectType,
-                });
+                logRes = await this.transLog.deleteLog(this.coll, logDocuments, this.userId);
             }
-            return getResMessage("deleteError", {message: errMsg});
+            const deleteResultValue: CrudResultType<any> = {
+                recordsCount: removed.deletedCount,
+                logRes,
+            }
+            return getResMessage("success", {
+                message: `Delete task completed - [${removed.deletedCount} of ${this.currentRecs.length} removed] `,
+                value  : deleteResultValue,
+            });
         } catch (e) {
             return getResMessage("removeError", {
                 message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,
@@ -411,161 +291,41 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
         }
     }
 
-    async removeRecordByParams(): Promise<ResponseMessage> {
+    async removeRecordByParams(): Promise<ResponseMessage<any>> {
+        if (!this.queryParams || isEmptyObject(this.queryParams)) {
+            return getResMessage("deleteError", {message: "Valid queryParams required"});
+        }
         // delete/remove records and log in audit-collection
         try {
-            // check current documents prior to update
-            const currentRecRes = await this.getCurrentRecords("queryParams");
-            if (currentRecRes.code !== "success") {
-                return currentRecRes;
+            const appDbColl = this.dbClient.db(this.dbName).collection(this.coll);
+            const removed = await appDbColl.deleteMany(this.queryParams,);
+            if (!removed.acknowledged || removed.deletedCount < 1) {
+                throw new Error(`document-remove-error [${removed.deletedCount} of ${this.currentRecs.length} removed]`)
             }
-            const currentRecs = currentRecRes.value as unknown as Array<T>;
-            let errMsg = "";
-            if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                const appDbColl = this.appDb.collection(this.coll);
-                const removed = await appDbColl.deleteMany(this.queryParams);
-                if (!removed || removed < 1) {
-                    throw new Error(`Unable to delete the specified records [${removed} of ${currentRecs.length} removed].`)
-                }
-                // optional, update child-collection-documents for setDefault and setNull/initialize-value?, if this.deleteSetDefault or this.deleteSetNull
-                for await (const currentRec of currentRecs) {
-                    if (this.childRelations.length < 1) {
-                        break;
-                    }
-                    // validate deleted document vs prior-currentDocument
-                    const qParams = {_id: currentRec._id};
-                    const undeletedRec = await appDbColl.findOne(qParams);
-                    if (undeletedRec) {
-                        continue;
-                    }
-                    if (this.deleteSetDefault) {
-                        const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_DEFAULT);
-                        for await (const cItem of childRelations) {
-                            const sourceField = cItem.sourceField;
-                            const targetField = cItem.targetField
-                            // check if targetModel is defined/specified, required to determine default-action
-                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                                // handle as error
-                                const recErrMsg = "Target model is required to complete the set-default-task";
-                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                continue;
-                            }
-                            const targetDocDesc = cItem.targetModel?.docDesc || {};
-                            const targetColl = cItem.targetModel?.collName || cItem.targetColl;
-                            // compute default values for the targetFields
-                            const docDefaultValue = await this.computeDefaultValues(targetDocDesc);
-                            const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;   // current value of the targetField
-                            const fieldDefaultValue = docDefaultValue[targetField] || null; // new value (default-value) of the targetField
-                            if (currentFieldValue === fieldDefaultValue) {
-                                // skip update
-                                continue;
-                            }
-                            // validate targetField default value | check if setDefault is permissible for the targetField
-                            let targetFieldDesc = targetDocDesc[targetField];
-                            switch (typeof targetFieldDesc) {
-                                case "object":
-                                    targetFieldDesc = targetFieldDesc as FieldDescType
-                                    // handle non-default-field
-                                    if (!targetFieldDesc.defaultValue || !Object.keys(targetFieldDesc).includes("defaultValue")) {
-                                        const recErrMsg = "Target/foreignKey default-value is required to complete the set-default task";
-                                        errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                        continue;
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                            const updateQuery: ObjectType = {};
-                            const updateSet: ObjectType = {};
-                            updateQuery[targetField] = currentFieldValue;
-                            updateSet[targetField] = fieldDefaultValue;
-                            const TargetColl = this.appDb.collection(targetColl);
-                            const updateRes = await TargetColl.updateMany(updateQuery, updateSet);
-                            if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated]`;
-                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            }
-                        }
-                    } else if (this.deleteSetNull) {
-                        const childRelations = this.childRelations.filter(item => item.onDelete === RelationActionTypes.SET_NULL);
-                        for await (const cItem of childRelations) {
-                            const sourceField = cItem.sourceField;
-                            const targetField = cItem.targetField;
-                            // check if targetModel is defined/specified, required to determine allowNull-action
-                            if (!cItem.targetModel || isEmptyObject(cItem.targetModel as unknown as ObjectType)) {
-                                // handle as error
-                                const recErrMsg = "Target model is required to complete the set-null-task";
-                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                continue;
-                            }
-                            const targetDocDesc = cItem.targetModel.docDesc || {};
-                            const initializeDocValue = this.computeInitializeValues(targetDocDesc)
-                            const currentFieldValue = (currentRec as unknown as ObjectType)[sourceField] || null;  // current value of the targetField
-                            const nullFieldValue = initializeDocValue[targetField] || null; // new value (null-value) of the targetField
-                            if (currentFieldValue === nullFieldValue) {
-                                // skip update
-                                continue;
-                            }
-                            // validate targetField null value | check if allowNull is permissible for the targetField
-                            const targetColl = cItem.targetModel.collName || cItem.targetColl;
-                            let targetFieldDesc = targetDocDesc[targetField];
-                            switch (typeof targetFieldDesc) {
-                                case "object":
-                                    targetFieldDesc = targetFieldDesc as FieldDescType
-                                    // handle non-null-field
-                                    if (!targetFieldDesc.allowNull || !Object.keys(targetFieldDesc).includes("allowNull")) {
-                                        const recErrMsg = "Target/foreignKey allowNull is required to complete the set-null task";
-                                        errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                            const updateQuery: ObjectType = {};
-                            const updateSet: ObjectType = {};
-                            updateQuery[targetField] = currentFieldValue;
-                            updateSet[targetField] = nullFieldValue;
-                            const TargetColl = this.appDb.collection(targetColl);
-                            const updateRes = await TargetColl.updateMany(updateQuery, updateSet,);
-                            if (updateRes.modifiedCount !== updateRes.matchedCount) {
-                                const recErrMsg = `Unable to update(cascade) all specified records [${updateRes.modifiedCount} of ${updateRes.matchedCount} updated].`;
-                                errMsg = errMsg ? `${errMsg} | ${recErrMsg}` : recErrMsg;
-                            }
-                        }
-                    }
-                }
-                // perform cache and audi-log tasks
-                if (removed) {
-                    // delete cache
-                    await deleteHashCache({key: this.cacheKey, hash: this.coll});
-                    // check the audit-log settings - to perform audit-log
-                    let logRes: ResponseMessage = {
-                        code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: {}
-                    };
-                    if (this.logDelete || this.logCrud) {
-                        const logDocuments: LogDocumentsType = {
-                            collDocuments: this.currentRecs,
-                        };
-                        const logParams: AuditLogOptionsType = {
-                            collName     : this.coll,
-                            collDocuments: logDocuments,
-                        }
-                        logRes = await this.transLog.deleteLog(this.userId, logParams);
-                    }
-                    const deleteResultValue: CrudResultType<T> = {
-                        recordsCount: removed,
-                        logRes,
-                    }
-                    return getResMessage("success", {
-                        message: `Document/record deleted successfully - ${removed} of ${this.currentRecs.length} removed.`,
-                        value  : deleteResultValue as unknown as ObjectType,
-                    });
-                } else {
-                    return getResMessage("deleteError", {message: errMsg});
-                }
-            } else {
-                return getResMessage("deleteError", {message: "Unable to delete record(s), due to missing queryParams"});
+            // perform delete cache and audit-log tasks
+            const cacheParams: QueryHashCacheParamsType = {
+                key : this.cacheKey,
+                hash: this.coll,
+                by  : "hash",
             }
+            deleteHashCache(cacheParams);
+            let logRes = {
+                code: "unknown", message: "in-determinate", resCode: 200, resMessage: "", value: null
+            };
+            if (this.logDelete || this.logCrud) {
+                const logDocuments: LogDocumentsType = {
+                    collDocuments: this.currentRecs,
+                }
+                logRes = await this.transLog.deleteLog(this.coll, logDocuments, this.userId);
+            }
+            const deleteResultValue: CrudResultType<any> = {
+                recordsCount: removed.deletedCount,
+                logRes,
+            }
+            return getResMessage("success", {
+                message: `Delete task completed - [${removed.deletedCount} of ${this.currentRecs.length} removed] `,
+                value  : deleteResultValue,
+            });
         } catch (e) {
             return getResMessage("removeError", {
                 message: `Error removing/deleting record(s): ${e.message ? e.message : ""}`,
@@ -576,7 +336,7 @@ class DeleteRecord<T extends BaseModelType> extends Crud<T> {
 }
 
 // factory function/constructor
-function newDeleteRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+function newDeleteRecord(params: CrudParamsType, options: CrudOptionsType = {}) {
     return new DeleteRecord(params, options);
 }
 

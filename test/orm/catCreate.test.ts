@@ -1,7 +1,6 @@
 import { assertEquals, mcTest, postTestResult } from "../../test_deps.ts";
 import {
-    AuditType, CrudParamsType, CrudResultType,
-    newDbMongo,
+    AuditType, CrudParamsType, CrudResultType, newDbMongo,
 } from "../../src/index.ts";
 import {
     categoryColl, CategoryCreateActionParams, CategoryModel,

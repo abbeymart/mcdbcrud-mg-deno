@@ -1,52 +1,27 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-04-05 | @Updated: 2020-05-16, 2023-11-22
  * @Company: mConnect.biz | @License: MIT
  * @Description: get records, by docIds, queryParams, all | cache-in-memory
  */
 
 // Import required module(s)
-import { getHashCache, getResMessage, ObjectId, ResponseMessage, setHashCache, } from "../../deps.ts";
-import { isEmptyObject } from "../orm/index.ts";
-import Crud from "./Crud.ts";
-import {
-    AuditLogOptionsType, BaseModelType, CheckAccessType, CrudOptionsType, CrudParamsType, GetRecords, GetRecordStats,
-    GetResultType, LogDocumentsType, ObjectType, QueryParamsType, TaskTypes,
-} from "./types.ts";
+import { ObjectId } from "mongodb";
+import { getHashCache, HashCacheParamsType, QueryHashCacheParamsType, setHashCache } from "@mconnect/mccache";
+import { getResMessage, ResponseMessage } from "@mconnect/mcresponse";
+import { isEmptyObject } from "../orm";
+import Crud from "./Crud";
+import { CrudOptionsType, CrudParamsType, GetRecordStats, GetResultType, LogDocumentsType } from "./types";
 
-class GetRecord<T extends BaseModelType> extends Crud<T> {
-    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+class GetRecord extends Crud {
+    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
         super(params, options);
         // Set specific instance properties
     }
 
-    async getRecord(): Promise<ResponseMessage> {
-        // check access permission
-        if (this.checkAccess) {
-            const loginStatusRes = await this.checkLoginStatus();
-            if (loginStatusRes.code !== "success") {
-                return loginStatusRes;
-            }
-            let accessRes: ResponseMessage;
-            // loginStatusRes.value.isAdmin
-            if (!(loginStatusRes.value as unknown as CheckAccessType).isAdmin) {
-                if (this.docIds && this.docIds.length > 0) {
-                    accessRes = await this.taskPermissionById(TaskTypes.READ);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else if (this.queryParams && !isEmptyObject(this.queryParams)) {
-                    accessRes = await this.taskPermissionByParams(TaskTypes.READ);
-                    if (accessRes.code !== "success") {
-                        return accessRes;
-                    }
-                } else {
-                    const accessRes = await this.checkTaskAccess(TaskTypes.READ);
-                    if (accessRes.code != "success") {
-                        return accessRes;
-                    }
-                }
-            }
-        }
+    /**
+     * @function getRecord - gets document/records by docIds, queryParams or all records
+     */
+    async getRecord(): Promise<ResponseMessage<any>> {
         // Check/validate the attributes / parameters
         const dbCheck = this.checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -55,10 +30,6 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         const auditDbCheck = this.checkDb(this.auditDb);
         if (auditDbCheck.code !== "success") {
             return auditDbCheck;
-        }
-        const accessDbCheck = this.checkDb(this.accessDb);
-        if (accessDbCheck.code !== "success") {
-            return accessDbCheck;
         }
 
         // set maximum limit and default values per query
@@ -83,38 +54,31 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
         if ((this.logRead || this.logCrud) && this.queryParams && !isEmptyObject(this.queryParams)) {
             const logDocuments: LogDocumentsType = {
                 queryParam: this.queryParams,
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            logRes = await this.transLog.readLog(logParams, this.userId);
+            }
+            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
         } else if ((this.logRead || this.logCrud) && this.docIds && this.docIds.length > 0) {
             const logDocuments: LogDocumentsType = {
                 docIds: this.docIds,
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            logRes = await this.transLog.readLog(logParams, this.userId);
+            }
+            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
         } else if (this.logRead || this.logCrud) {
             const logDocuments: LogDocumentsType = {
                 queryParam: {},
-            };
-            const logParams: AuditLogOptionsType = {
-                collName     : this.coll,
-                collDocuments: logDocuments,
-            };
-            logRes = await this.transLog.readLog(logParams, this.userId);
+            }
+            logRes = await this.transLog.readLog(this.coll, logDocuments, this.userId);
         }
 
         // check cache for matching record(s), and return if exist
         if (this.cacheResult) {
             try {
-                const cacheRes = await getHashCache({key: this.cacheKey, hash: this.coll,});
-                if (cacheRes && cacheRes.value) {
-                    console.log("cache-items-before-query: ", (cacheRes.value as unknown as GetResultType<T>).records[0]);
+                const cacheParams: QueryHashCacheParamsType = {
+                    key : this.cacheKey,
+                    hash: this.coll,
+                    by  : "hash",
+                }
+                const cacheRes = getHashCache<GetResultType<any>>(cacheParams);
+                if (cacheRes.ok && cacheRes.value) {
+                    console.log("cache-items-before-query: ", cacheRes.value?.records[0]);
                     return getResMessage("success", {
                         value  : cacheRes.value,
                         message: "from cache",
@@ -132,10 +96,10 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                 const docIds = this.docIds.map(id => new ObjectId(id));
                 // use / activate database
                 const appDbColl = this.appDb.collection(this.coll);
-                const qParams: QueryParamsType = {_id: {$in: docIds}};
-                const result = await appDbColl.find(qParams)
+                const result = await appDbColl.find({_id: {$in: docIds}})
                     .skip(this.skip)
                     .limit(this.limit)
+                    .project(this.projectParams)
                     .sort(this.sortParams)
                     .toArray();
                 const totalDocsCount = await appDbColl.countDocuments();
@@ -147,18 +111,20 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                         recordsCount     : result.length,
                         totalRecordsCount: totalDocsCount,
                     }
-                    const resultValue: GetResultType<T> = {
-                        records: result as unknown as GetRecords,
+                    const resultValue: GetResultType<any> = {
+                        records: result,
                         stats,
                         logRes,
                     }
-
-                    setHashCache({
-                        key   : this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType,
+                    const cacheParams: HashCacheParamsType<GetResultType<any>> = {
+                        key   : this.cacheKey,
+                        hash  : this.coll,
+                        value : resultValue,
                         expire: this.cacheExpire
-                    });
+                    }
+                    this.cacheResult && setHashCache(cacheParams);
                     return getResMessage("success", {
-                        value: resultValue as unknown as ObjectType,
+                        value: resultValue,
                     });
                 }
                 return getResMessage("notFound");
@@ -176,6 +142,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                 const result = await appDbColl.find(this.queryParams)
                     .skip(this.skip)
                     .limit(this.limit)
+                    .project(this.projectParams)
                     .sort(this.sortParams)
                     .toArray();
                 const totalDocsCount = await appDbColl.countDocuments();
@@ -187,17 +154,20 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                         recordsCount     : result.length,
                         totalRecordsCount: totalDocsCount,
                     }
-                    const resultValue: GetResultType<T> = {
-                        records: result as unknown as GetRecords,
+                    const resultValue: GetResultType<any> = {
+                        records: result,
                         stats,
                         logRes,
                     }
-                    setHashCache({
-                        key   : this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType,
+                    const cacheParams: HashCacheParamsType<GetResultType<any>> = {
+                        key   : this.cacheKey,
+                        hash  : this.coll,
+                        value : resultValue,
                         expire: this.cacheExpire
-                    });
+                    }
+                    this.cacheResult && setHashCache(cacheParams);
                     return getResMessage("success", {
-                        value: resultValue as unknown as ObjectType,
+                        value: resultValue,
                     });
                 }
                 return getResMessage("notFound");
@@ -214,6 +184,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
             const result = await appDbColl.find()
                 .skip(this.skip)
                 .limit(this.limit)
+                .project(this.projectParams)
                 .sort(this.sortParams)
                 .toArray();
             const totalDocsCount = await appDbColl.countDocuments();
@@ -225,17 +196,20 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
                     recordsCount     : result.length,
                     totalRecordsCount: totalDocsCount,
                 }
-                const resultValue: GetResultType<T> = {
-                    records: result as unknown as GetRecords,
+                const resultValue: GetResultType<any> = {
+                    records: result,
                     stats,
                     logRes,
                 }
-                setHashCache({
-                    key   : this.cacheKey, hash: this.coll, value: resultValue as unknown as ObjectType,
+                const cacheParams: HashCacheParamsType<GetResultType<any>> = {
+                    key   : this.cacheKey,
+                    hash  : this.coll,
+                    value : resultValue,
                     expire: this.cacheExpire
-                });
+                }
+                this.cacheResult && setHashCache(cacheParams);
                 return getResMessage("success", {
-                    value: resultValue as unknown as ObjectType,
+                    value: resultValue,
                 });
             }
             return getResMessage("notFound");
@@ -248,7 +222,7 @@ class GetRecord<T extends BaseModelType> extends Crud<T> {
 }
 
 // factory function/constructor
-function newGetRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+function newGetRecord(params: CrudParamsType, options: CrudOptionsType = {}) {
     return new GetRecord(params, options);
 }
 

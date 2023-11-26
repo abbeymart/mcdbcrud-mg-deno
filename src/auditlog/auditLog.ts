@@ -1,5 +1,5 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-07-15
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-07-15, 2023-11-25
  * @Company: Copyright 2020 Abi Akindele  | mConnect.biz
  * @License: All Rights Reserved | LICENSE.md
  * @Description: mcdbcrud-mg audit-log (mongodb) entry point | auditLog
@@ -8,7 +8,7 @@
 // Import required module/function
 import { Database, getResMessage, ResponseMessage } from "../../deps.ts";
 import { checkDb } from "../dbc/index.ts";
-import { AuditLogTypes, AuditLogOptionsType, AuditType, ObjectType, } from "../crud/index.ts";
+import { AuditLogTypes, AuditLogOptionsType, AuditType, ObjectType, AuditParamsType, } from "../crud/index.ts";
 import { isEmptyObject } from "../orm/index.ts";
 
 //types
@@ -547,6 +547,60 @@ class AuditLog {
             });
         }
     }
+
+    async customLog(params: AuditParamsType): Promise<ResponseMessage> {
+        const dbCheck = checkDb(this.dbHandle);
+        if (dbCheck.code !== "success") {
+            return dbCheck;
+        }
+
+        // Check/validate the attributes / parameters
+        let errorMessage = "";
+        if (!params.collDocuments) {
+            errorMessage = errorMessage ? errorMessage + " | Data / information to be logged is required." :
+                "Data / information to be logged is required.";
+        }
+        if (!params.logBy) {
+            errorMessage = errorMessage ? errorMessage + " | Log userId/name or owner required." :
+                "Log userId/name or owner required.";
+        }
+        if (errorMessage) {
+            console.log("error-message: ", errorMessage);
+            return getResMessage("paramsError", {
+                message: errorMessage,
+            });
+        }
+
+        try {
+            // insert audit record
+            const coll = this.dbHandle.collection(this.auditColl);
+            const result = await coll.insertOne({
+                collName     : params.collName? params.collName : "not-specified",
+                collDocuments: params.collDocuments,
+                logType      : params.logType,
+                logBy        : params.logBy? params.logBy : "not-specified",
+                logAt        : new Date(),
+            });
+
+            if (result.acknowledged) {
+                return getResMessage("success", {
+                    value: result,
+                });
+            } else {
+                return getResMessage("insertError", {
+                    value  : result || "no-result",
+                    message: "no response from the server",
+                });
+            }
+        } catch (error) {
+            console.log("Error saving create-audit record(s): ", error);
+            return getResMessage("logError", {
+                value  : error.message,
+                message: "Error saving create-audit record(s): " + error.message,
+            });
+        }
+    }
+
 }
 
 function newAuditLog(auditDb: Database, options?: AuditLogOptionsType) {

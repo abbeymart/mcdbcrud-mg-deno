@@ -6,8 +6,8 @@
  */
 
 import { DataTypes, FieldDescType, ModelDescType, ValueParamsType } from "./types.ts";
-import { BaseModelType, ObjectType } from "../crud/index.ts";
-import { getResMessage, ResponseMessage } from "../../deps.ts";
+import { ObjectType } from "../crud/index.ts";
+import { getResMessage, ResponseMessage, ValueType } from "../../deps.ts";
 
 // isEmptyObject validates is an object contains no keys and/or values
 export function isEmptyObject(val: ObjectType): boolean {
@@ -15,7 +15,7 @@ export function isEmptyObject(val: ObjectType): boolean {
 }
 
 // validateActionParams validates actParams for save (create or update) operation
-export function validateActionParams<T extends BaseModelType>(actParams: Array<T> = []): ResponseMessage {
+export function validateActionParams<T extends ValueType>(actParams: Array<T> = []): ResponseMessage<T> {
     // validate req-params: actionParams must be array or 1 or more item(s)
     if (actParams.length < 1) {
         return getResMessage('validateError', {

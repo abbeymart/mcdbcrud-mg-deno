@@ -4,8 +4,8 @@
  * @Description: common util functions
  */
 
-import {getResMessage} from "../deps.ts";
-import { isEmpty, ObjectType, ValueType, } from "./crud/index.ts";
+import {getResMessage, ValueType,} from "../deps.ts";
+import { isEmpty, ObjectType, } from "./crud/index.ts";
 
 // types
 interface ValueObject {
@@ -86,7 +86,7 @@ export function getParamsMessage(msgObject: MessageObject): ResponseMessage {
 }
 
 export function shortString(str: string, maxLength = 20): string {
-    return str.toString().length > maxLength ? str.toString().substr(0, maxLength) + "..." : str.toString();
+    return str.toString().length > maxLength ? str.toString().substring(0, maxLength) + "..." : str.toString();
 }
 
 export function strToBool(val: string | number = "n"): boolean {

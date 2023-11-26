@@ -14,7 +14,7 @@ import { newDbMongo } from "../src/index.ts";
             console.log("server-URI: ", dbInstance.serverUri)
             try {
                 const dbClient = await dbInstance.mgServer();
-                const db = await dbClient.database(appDb.database);
+                const db = dbClient.database(appDb.database);
                 if (db.name === appDb.database) {
                     pResult = true;
                 }
@@ -22,7 +22,7 @@ import { newDbMongo } from "../src/index.ts";
                 console.log("dbc-client-connection-error: ", e);
                 pResult = false;
             } finally {
-                await dbInstance.closeDb();
+                dbInstance.closeDb();
             }
             assertEquals(pResult, true, `client-result-connected: true`);
         }
@@ -42,7 +42,7 @@ import { newDbMongo } from "../src/index.ts";
                 console.log("dbc-client-connection-error: ", e);
                 pResult = false;
             } finally {
-                await dbInstance.closeDb();
+                dbInstance.closeDb();
             }
             assertEquals(pResult, true, `client-result-connected: true`);
         }
@@ -55,7 +55,7 @@ import { newDbMongo } from "../src/index.ts";
             const dbInstance = newDbMongo(appDb, dbOptions);
             try {
                 const dbClient = await dbInstance.mgServer();
-                const dbHandle = await dbClient.database(appDb.database);
+                const dbHandle = dbClient.database(appDb.database);
                 if (dbHandle.name === appDb.database) {
                     pResult = true;
                 }
@@ -63,7 +63,7 @@ import { newDbMongo } from "../src/index.ts";
                 console.log("dbc-client-connection-error: ", e);
                 pResult = false;
             } finally {
-                await dbInstance.closeDb();
+                dbInstance.closeDb();
             }
             assertEquals(pResult, true, `client-result-connected: true`);
         }
@@ -83,12 +83,11 @@ import { newDbMongo } from "../src/index.ts";
                 console.log("dbc-client-connection-error: ", e);
                 pResult = false;
             } finally {
-                await dbInstance.closeDb()
+                dbInstance.closeDb()
             }
             assertEquals(pResult, true, `client-result-connected: true`);
         }
     });
-
 
     postTestResult();
 

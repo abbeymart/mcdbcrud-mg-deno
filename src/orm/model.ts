@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 /**
  * @Author: abbeymart | Abi Akindele | @Created: 2020-07-25
  * @Company: Copyright 2020 Abi Akindele  | mConnect.biz
@@ -6,7 +7,9 @@
  */
 
 import validator from "npm:validator";
-import { getParamsMessage, getResMessage, MessageObject, ResponseMessage, Document, FindCursor, } from "../../deps.ts";
+import {
+    getParamsMessage, getResMessage, MessageObject, ResponseMessage, Document, ValueType, ObjectId,
+} from "../../deps.ts";
 
 import {
     ComputedMethodsType,
@@ -24,14 +27,16 @@ import {
     ValueToDataTypes,
 } from "./types.ts";
 import {
+    ActionExistParamsType,
+    ActionParamsType, ActionParamType,
     BaseModelType,
     CrudOptionsType,
-    CrudParamsType,
+    CrudParamsType, ExistParamItemType, ExistParamsType,
     newDeleteRecord,
     newGetRecord,
     newGetRecordStream,
     newSaveRecord, ObjectType,
-    TaskTypes, ValueType,
+    TaskTypes,
 } from "../crud/index.ts";
 import { isEmptyObject } from "./helpers.ts";
 
@@ -150,18 +155,111 @@ export class Model<T extends BaseModelType> {
 
     // ***** helper methods *****
 
+    // computeExistParam compute the query-object(s) for checking document uniqueness based on model-unique-fields constraints.
+    computeExistParam(actionParam: ActionParamType): ExistParamsType {
+        // set the existParams for create or update action to determine document uniqueness
+        const existParam: ExistParamsType = [];
+        const item = actionParam;
+        for (const fields of this.modelUniqueFields) {
+            // compute the uniqueness object
+            const uniqueObj: ExistParamItemType = {};
+            for (const field of fields) {
+                // exclude primary/unique _id field/key
+                if (field === "_id") {
+                    continue
+                }
+                // set item value
+                uniqueObj[field] = item[field]
+            }
+            // append the uniqueObj
+            existParam.push({
+                ...uniqueObj,
+            });
+            // add uniqueness object to the existParams, to exclude the existing document(update-task)
+            if (item["_id"] || item["_id"] !== "") {
+                existParam.push({
+                    _id: {
+                        $ne: new ObjectId(item["_id"] as string),
+                    },
+                    ...uniqueObj,
+                });
+            }
+        }
+        return existParam;
+    }
+
+    // computeExistParams compute the query-object(s) for checking documents uniqueness based on model-unique-fields constraints.
+    computeExistParams(actionParams: ActionParamsType): ActionExistParamsType {
+        // set the existParams for create or update action to determine documents uniqueness
+        const existParams: ActionExistParamsType = [];
+        for (const item of actionParams) {
+            const existParam = this.computeExistParam(item)
+            existParams.push(existParam)
+        }
+        return existParams;
+    }
+
+    // validateRequiredFields validates the non-null field-values, i.e. allowNull === false.
+    validateRequiredFields(actionParam: ActionParamType): ValidateResponseType {
+        const errors: MessageObject = {};
+        const reqFields = this.computeRequiredFields()
+        if (reqFields.length < 1) {
+            errors["message"] = "No field validation requirements specified"
+            return {
+                ok: true,
+                errors,
+            };
+        }
+        // validate required field-values
+        for (const field of reqFields) {
+            if (!actionParam[field]) {
+                errors[field] = `Field: ${field} is required (not-null)`;
+            }
+        }
+        if (!isEmptyObject(errors)) {
+            return {
+                ok: false,
+                errors,
+            }
+        }
+        return {
+            ok: true,
+            errors,
+        }
+    }
+
+    // computeRequiredFields computes the non-null fields, i.e. allowNull === false.
+    computeRequiredFields(): Array<string> {
+        const requiredFields: Array<string> = [];
+        for (let [field, fieldDesc] of Object.entries(this.modelDocDesc)) {
+            switch (typeof fieldDesc) {
+                case "object":
+                    fieldDesc = fieldDesc as FieldDescType;
+                    if (!fieldDesc.allowNull) {
+                        requiredFields.push(field);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        this.requiredFields = requiredFields;
+        return requiredFields;
+    }
+
     // computeFieldValueType computes the document-field-value-type, as DataTypes.
     computeFieldValueType(val: ValueType): DataTypes {
         let computedType: DataTypes;
         try {
             if (Array.isArray(val)) {
-                if (val.every((item) => typeof item === "number")) {
+                const valRec: Array<any> = val
+                if (valRec.every((item) => typeof item === "number")) {
                     computedType = DataTypes.ARRAY_NUMBER;
-                } else if (val.every((item) => typeof item === "string")) {
+                } else if (valRec.every((item) => typeof item === "string")) {
                     computedType = DataTypes.ARRAY_STRING;
-                } else if (val.every((item) => typeof item === "boolean")) {
+                } else if (valRec.every((item) => typeof item === "boolean")) {
                     computedType = DataTypes.ARRAY_BOOLEAN;
-                } else if (val.every((item) => typeof item === "object")) {
+                } else if (valRec.every((item) => typeof item === "object")) {
                     computedType = DataTypes.ARRAY_OBJECT;
                 } else {
                     computedType = DataTypes.ARRAY;
@@ -507,7 +605,167 @@ export class Model<T extends BaseModelType> {
 
     // ***** crud operations / methods : interface to the CRUD modules *****
 
-    async save(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async save(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
+        try {
+            // model specific params
+            params.coll = this.modelCollName;
+            params.docDesc = this.modelDocDesc;
+            this.taskType = TaskTypes.UNKNOWN;  // create or update
+            // set checkAccess status for crud-task-permission control
+            options.checkAccess = typeof options.checkAccess !== "undefined" ? options.checkAccess : false;
+            this.checkAccess = options.checkAccess;
+            // validate task/action-params
+            if (!params.actionParams || params.actionParams.length < 1) {
+                return getResMessage('validateError', {
+                    message: "actionParams(record-inputs) must be an array of object values [ActionParamsType].",
+                });
+            }
+            // get docValue transformed types (as DataTypes) | one iteration only for actionParams[0]
+            const docValueTypes = this.computeDocValueType(params.actionParams[0] as T);
+            // validate actionParams (docValues), prior to saving, via this.validateDocValue
+            const actParams: ActionParamsType = []
+            for (const docValue of params.actionParams) {
+                // set defaultValues, prior to save
+                const modelDocValue = await this.setDefaultValues(docValue as T);
+                // validate actionParam-item (docValue) field-values
+                const validateRes = await this.validateDocValue(modelDocValue, docValueTypes);
+                if (!validateRes.ok || !isEmptyObject(validateRes.errors)) {
+                    return getParamsMessage(validateRes.errors);
+                }
+                // update actParams, with the model-transformed document-value
+                actParams.push(modelDocValue)
+            }
+            // update CRUD params and options
+            params.actionParams = actParams
+            // update unique-fields query-parameters
+            params.existParams = this.computeExistParams(params.actionParams);
+            options = {
+                ...options, ...this.modelOptionValues,
+            };
+            // instantiate CRUD-save class & perform save-crud task (create or update)
+            const crud = newSaveRecord(params, options);
+            // validate docIds, for updates
+            const docIds: Array<string> = [];
+            for (const rec of params.actionParams) {
+                if (rec["_id"]) {
+                    docIds.push(rec["_id"] as string);
+                }
+            }
+            if (docIds.length > 0) {
+                params.docIds = docIds
+            }
+            // determine taskType - create or update (not both)
+            if (params.actionParams && params.actionParams.length > 0) {
+                const actParam = params.actionParams[0]
+                if (!actParam["_id"] || actParam["_id"] === "") {
+                    if (params.actionParams.length === 1 && (params.docIds && params.docIds?.length > 0) ||
+                        params.queryParams && !isEmptyObject(params.queryParams)) {
+                        this.taskType = TaskTypes.UPDATE
+                    } else {
+                        this.taskType = TaskTypes.CREATE
+                    }
+                } else {
+                    this.taskType = TaskTypes.UPDATE
+                }
+            } else {
+                return getResMessage('saveError', {
+                    message: "Valid actionParams is required to perform save (create/update) task",
+                });
+            }
+            return await crud.saveRecord();
+        } catch (e) {
+            console.error(e);
+            return getResMessage("saveError", {message: `${e.message ? e.message : "Unable to complete save tasks"}`});
+        }
+    }
+
+    async get(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
+        try {
+            // model specific params
+            params.coll = this.modelCollName;
+            params.docDesc = this.modelDocDesc;
+            params.taskType = TaskTypes.READ;
+            this.taskType = params.taskType;
+            // set access:
+            options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
+            this.checkAccess = options.checkAccess;
+            const crud = newGetRecord(params, options);
+            return await crud.getRecord();
+        } catch (e) {
+            console.error(e);
+            return getResMessage(`readError ${e.message ? "=> " + e.message : ""}`);
+        }
+    }
+
+    async getStream(params: CrudParamsType, options: CrudOptionsType = {}): Promise<AsyncIterable<Document>> {
+        // get stream of document(s), returning a cursor or error
+        try {
+            // model specific params
+            params.coll = this.modelCollName;
+            params.docDesc = this.modelDocDesc;
+            params.taskType = TaskTypes.READ;
+            this.taskType = params.taskType;
+            // set access:
+            options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
+            this.checkAccess = options.checkAccess;
+            const crud = newGetRecordStream(params, options);
+            return await crud.getRecordStream();
+        } catch (e) {
+            console.error(e);
+            throw new Error(`notFound ${e.message ? "=> " + e.message : ""}`);
+        }
+    }
+
+    async lookupGet(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
+        // get lookup documents based on queryParams and model-relations definition
+        try {
+            // model specific params
+            params.coll = this.modelCollName;
+            params.docDesc = this.modelDocDesc;
+            params.taskType = TaskTypes.READ;
+            this.taskType = params.taskType;
+            // set access
+            options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
+            this.checkAccess = options.checkAccess;
+            const crud = newGetRecord(params, options);
+            return await crud.getRecord();
+        } catch (e) {
+            console.error(e);
+            return getResMessage("readError", {
+                message: `Document(s) lookup fetch-error ${e.message ? "=> " + e.message : ""}`
+            });
+        }
+    }
+
+    async delete(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
+        // validate queryParams based on model/docDesc
+        try {
+            // model specific params
+            params.coll = this.modelCollName;
+            params.docDesc = this.modelDocDesc;
+            params.taskType = TaskTypes.DELETE;
+            this.taskType = params.taskType;
+            // set access:
+            options.checkAccess = options.checkAccess !== undefined ? options.checkAccess : false;
+            this.checkAccess = options.checkAccess;
+            // update options
+            options = {
+                ...options, ...{
+                    parentColls    : this.getParentColls(),
+                    childColls     : this.getChildColls(),
+                    parentRelations: this.getParentRelations(),
+                    childRelations : this.getChildRelations(),
+                }
+            }
+            const crud = newDeleteRecord(params, options);
+            return await crud.deleteRecord();
+        } catch (e) {
+            console.error(e);
+            return getResMessage(`deleteError ${e.message ? "=> " + e.message : ""}`);
+        }
+    }
+
+    async save2(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
         try {
             // model specific params
             params.coll = params.coll || this.modelCollName;
@@ -524,14 +782,14 @@ export class Model<T extends BaseModelType> {
                 });
             }
             // get docValue transformed types (as DataTypes) | one iteration only for actionParams[0]
-            const docValueTypes = this.computeDocValueType(params.actionParams[0]);
+            const docValueTypes = this.computeDocValueType(params.actionParams[0] as T);
             // validate actionParams (docValues), prior to saving, via this.validateDocValue
             const actParams: Array<T> = [];
             for (const docValue of params.actionParams) {
                 // set defaultValues, prior to save
-                const modelDocValue = await this.setDefaultValues(docValue);
+                const modelDocValue = await this.setDefaultValues(docValue as T);
                 // validate actionParam-item (docValue) field-values
-                const validateRes = await this.validateDocValue(modelDocValue, docValueTypes);
+                const validateRes = this.validateDocValue(modelDocValue, docValueTypes);
                 if (!validateRes.ok || !isEmptyObject(validateRes.errors)) {
                     return getParamsMessage(validateRes.errors);
                 }
@@ -555,7 +813,7 @@ export class Model<T extends BaseModelType> {
         }
     }
 
-    async get(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async get2(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
         try {
             // model specific params
             params.coll = params.coll || this.modelCollName;
@@ -574,7 +832,7 @@ export class Model<T extends BaseModelType> {
     }
 
     // Work-in-progress, not currently used
-    async getStream(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<FindCursor<Document>> {
+    async getStream2(params: CrudParamsType, options: CrudOptionsType = {}): Promise<AsyncIterable<Document>> {
         // get stream of document(s), returning a cursor or error
         try {
             // model specific params
@@ -593,7 +851,7 @@ export class Model<T extends BaseModelType> {
         }
     }
 
-    async lookup(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async lookup2(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
         // get lookup documents based on queryParams and model-relations definition
         try {
             // model specific params
@@ -614,7 +872,7 @@ export class Model<T extends BaseModelType> {
         }
     }
 
-    async delete(params: CrudParamsType<T>, options: CrudOptionsType = {}): Promise<ResponseMessage> {
+    async delete2(params: CrudParamsType, options: CrudOptionsType = {}): Promise<ResponseMessage<any>> {
         // validate queryParams based on model/docDesc
         try {
             // model specific params

@@ -13,8 +13,8 @@ export class DbMongo {
     private readonly username: string;
     private readonly password: string;
     private readonly database: string;
-    private readonly location: string;
     private readonly port: number;
+    private readonly location: string;
     private readonly minPoolSize: number;
     private readonly secureOption: DbSecureType;
     private readonly serverUrl: string;
@@ -32,8 +32,8 @@ export class DbMongo {
         this.username = dbConfig?.username || "";
         this.password = dbConfig?.password || "";
         this.database = dbConfig?.database || "";
-        this.location = dbConfig?.location || "";
         this.port = Number(dbConfig?.port) || Number.NEGATIVE_INFINITY;
+        this.location = dbConfig?.location || "";
         this.minPoolSize = dbConfig?.poolSize || 20;
         this.secureOption = dbConfig?.secureOption || {secureAccess: false, secureCert: "", secureKey: ""};
         this.checkAccess = options?.checkAccess !== false;
@@ -135,8 +135,8 @@ export class DbMongo {
         }
     }
 
-    async closeDb() {
-        await this.dbConnect?.close();
+    closeDb() {
+        this.dbConnect?.close();
     }
 
     // mgServer returns the mongo-client connection to the mongo-server

@@ -1,5 +1,10 @@
 # Historical logs
 
+## Version 0.2.0
+
+- Release date: Nov 26, 2023
+- Simplify-CRUD-tasks-and-optional-ORM-features-v0.2.0
+
 ## Version 0.1.0
 
 - Release date: Dec 08, 2022

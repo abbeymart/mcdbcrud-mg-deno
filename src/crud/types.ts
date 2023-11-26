@@ -1,47 +1,37 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2020-07-23
+ * @Author: abbeymart | Abi Akindele | @Created: 2020-07-23, 2023-11-25
  * @Company: Copyright 2020 Abi Akindele  | mConnect.biz
  * @License: All Rights Reserved | LICENSE.md
  * @Description: CRUD types
  */
 
-import { Database, Document, MongoClient, ResponseMessage } from "../../deps.ts";
-import { ModelRelationType, ModelOptionsType, ValidateMethodResponseType, DocDescType } from "../orm/index.ts";
+import { Database, MongoClient, ResponseMessage, ValueType } from "../../deps.ts";
+import {
+    ModelRelationType, ModelOptionsType, ValidateMethodResponseType, DocDescType, UniqueFieldsType
+} from "../orm/index.ts";
 
-export type ValueType =
-    | Record<string, unknown>
-    | Array<Record<string, unknown>>
-    | string
-    | number
-    | Array<string>
-    | Array<number>
-    | Date
-    | Array<Date>
-    | boolean
-    | Array<boolean>
-    | { [key: string]: ValueType }
-    | unknown;
-
-export interface ObjectType extends BaseModelType{
-    [key: string]: ValueType;
+export interface ObjectType {
+    // deno-lint-ignore no-explicit-any
+    [key: string]: any;
 }
 
 
 // ModelValue will be validated based on the Model definition
-export type DocumentParamsType<T extends Document> = T;
-
 export interface ActionParamType {
-    [key: string]: ValueType;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
+    // deno-lint-ignore no-explicit-any
+    [key: string]: any;         // fieldName: fieldValue, must match fieldType (re: validate) in model definition
 }
 
-export type ActionParamsType<T extends BaseModelType> = Array<T>;  // documents for create or update task/operation
+export type ActionParamsType = Array<ActionParamType>;  // documents for create or update task/operation
 
 export interface QueryParamsType {
-    [key: string]: ValueType;
+    // deno-lint-ignore no-explicit-any
+    [key: string]: any;
 }
 
 export interface ExistParamItemType {
-    [key: string]: ValueType;
+    // deno-lint-ignore no-explicit-any
+    [key: string]: any;
 }
 
 export type ExistParamsType = Array<ExistParamItemType>;
@@ -52,10 +42,11 @@ export interface ProjectParamsType {
     [key: string]: number; // 1 for inclusion and 0 for exclusion
 }
 
-export type SortParamsType = Record<string, number> // key:direction => 1 for "asc", -1 for "desc"
+export type SortParamsType = Map<string, number> // key:direction => 1 for "asc", -1 for "desc"
+
 
 export interface BaseModelType {
-    _id?: string;
+    id?: string;
     language?: string;
     description?: string;
     appId?: string;
@@ -81,34 +72,34 @@ export interface GetRecordStats {
     recordsCount?: number;
     totalRecordsCount?: number;
     queryParams?: QueryParamsType;
-    docIds?: Array<string>;
+    recordIds?: Array<string>;
     expire?: number;
 }
 
 export type GetRecords = Array<ObjectType>;
 
-export interface GetResultType<T extends BaseModelType> {
+export interface GetResultType<T extends ValueType> {
     records: GetRecords,
     stats: GetRecordStats,
-    logRes?: ResponseMessage;
+    logRes?: ResponseMessage<T>;
     taskType?: string;
 }
 
-export interface CrudResultType<T extends BaseModelType> {
+export interface CrudResultType<T extends ValueType> {
     queryParam?: QueryParamsType;
     recordIds?: Array<string>;
     recordsCount?: number;
-    records?: Array<T>;
+    records?: ActionParamsType;
     taskType?: string;
-    logRes?: ResponseMessage;
+    logRes?: ResponseMessage<T>;
 }
 
-export interface SaveResultType {
+export interface SaveResultType<T extends ValueType> {
     queryParam?: QueryParamsType;
-    docIds?: Array<string>;
+    recordIds?: Array<string>;
     recordsCount?: number;
     taskType?: string;
-    logRes?: ResponseMessage;
+    logRes?: ResponseMessage<T>;
 }
 
 export enum TaskTypes {
@@ -125,19 +116,14 @@ export enum TaskTypes {
 
 // auditLog types
 
-export interface LogRecordsType {
-    logRecords?: ValueType;
-    queryParams?: QueryParamsType;
-    docIds?: Array<string>;
-    tableFields?: Array<string>;
-}
-
 export interface LogDocumentsType {
-    logDocuments?: ValueType;
+    // deno-lint-ignore no-explicit-any
+    logDocuments?: any;
     queryParam?: QueryParamsType;
     docIds?: Array<string>;
     collFields?: Array<string>;
-    collDocuments?: Array<ValueType>;
+    // deno-lint-ignore no-explicit-any
+    collDocuments?: Array<any>;
 }
 
 export interface AuditLogOptionsType {
@@ -147,16 +133,6 @@ export interface AuditLogOptionsType {
     newCollDocuments?: LogDocumentsType;
     recordParams?: LogDocumentsType;
     newRecordParams?: LogDocumentsType;
-}
-
-export interface AuditType {
-    _id?: string;
-    collName?: string;
-    collDocuments?: LogDocumentsType;
-    newCollDocuments?: LogDocumentsType;
-    logType?: string;
-    logBy?: string;
-    logAt?: Date | string;
 }
 
 export enum AuditLogTypes {
@@ -267,11 +243,11 @@ export type FieldValueTypes =
     string
     | number
     | boolean
-    | ValueType
+    | ObjectType
     | Array<string>
     | Array<number>
     | Array<boolean>
-    | Array<ValueType>
+    | Array<ObjectType>
     | unknown;
 
 export type PromiseResponseType = Promise<string>
@@ -280,12 +256,12 @@ export type PromiseResponseType = Promise<string>
     | Promise<Array<string>>
     | Promise<Array<number>>
     | Promise<Array<boolean>>
-    | Promise<Array<ValueType>>;
+    | Promise<Array<ObjectType>>;
 
-export interface ActionParamTaskType<T extends BaseModelType> {
-    createItems: Array<T>;
-    updateItems: Array<T>;
-    docIds: Array<string>;
+export interface ActionParamTaskType {
+    createItems: ActionParamsType;
+    updateItems: ActionParamsType;
+    docIds?: Array<string>;
 }
 
 export interface AppParamsType {
@@ -297,7 +273,7 @@ export interface AppParamsType {
     serviceTag?: string;
 }
 
-export interface CrudParamsType<T extends BaseModelType> {
+export interface CrudParamsType {
     appDb: Database;
     coll: string;
     dbClient: MongoClient;
@@ -306,7 +282,7 @@ export interface CrudParamsType<T extends BaseModelType> {
     userInfo?: UserInfoType;
     nullValues?: ActionParamType;
     defaultValues?: ActionParamType;
-    actionParams?: Array<T>;
+    actionParams?: ActionParamsType;
     existParams?: ActionExistParamsType;
     queryParams?: QueryParamsType;
     docIds?: Array<string>;
@@ -328,7 +304,6 @@ export interface CrudOptionsType {
     childColls?: Array<string>;
     parentRelations?: Array<ModelRelationType>;
     childRelations?: Array<ModelRelationType>;
-    uniqueFields?: Array<Array<string>>;
     recursiveDelete?: boolean;
     checkAccess?: boolean
     auditColl?: string;
@@ -369,5 +344,7 @@ export interface CrudOptionsType {
     appTables?: Array<string>;
     cacheResult?: boolean;
     getAllRecords?: boolean;
+    userId?: string;
+    uniqueFields?: UniqueFieldsType;
 }
 

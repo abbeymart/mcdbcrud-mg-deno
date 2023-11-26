@@ -1,47 +1,61 @@
 /**
- * @Author: abbeymart | Abi Akindele | @Created: 2018-11-19 | @Updated: 2019-06-15
+ * @Author: abbeymart | Abi Akindele | @Created: 2018-11-19 | @Updated: 2019-06-15, 2023-11-22
  * @Company: mConnect.biz | @License: MIT
  * @Description: bulk load records / documents, strictly for server-side(admin) ETL tasks
  */
 
 // Import required module/function(s)
-import { Database, getResMessage, getParamsMessage, ResponseMessage } from "../../deps.ts";
-import { isEmptyObject } from "../orm/index.ts";
-import { validateLoadParams } from "./ValidateCrudParam.ts";
-import { checkDb } from "../dbc/index.ts";
-import { BaseModelType, CrudOptionsType, CrudParamsType, UserInfoType } from "./types.ts";
+import { Db } from "mongodb";
+import { getParamsMessage, getResMessage, MessageCodes, ResponseMessage } from "@mconnect/mcresponse";
+import { isEmptyObject } from "../orm";
+import { validateLoadParams } from "./ValidateCrudParam";
+import { checkDb } from "../dbc";
+import { ActionParamsType, CrudOptionsType, CrudParamsType, } from "./types";
 
-class LoadRecord<T extends BaseModelType> {
-    protected params: CrudParamsType<T>;
-    protected appDb: Database;
+class LoadRecord {
+    protected params: CrudParamsType;
+    protected appDb: Db;
     protected coll: string;
-    protected token: string;
-    protected userInfo: UserInfoType;
-    protected actionParams: Array<T>;
-    protected userId: string;
+    protected actionParams: ActionParamsType;
     protected maxQueryLimit: number;
 
-    constructor(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+    constructor(params: CrudParamsType, options: CrudOptionsType = {}) {
         this.params = params;
         this.appDb = params.appDb;
         this.coll = params.coll;
         this.actionParams = params && params.actionParams ? params.actionParams : [];
-        this.userInfo = params && params.userInfo ? params.userInfo :
-            {
-                token    : "",
-                userId   : "",
-                firstname: "",
-                lastname : "",
-                language : "",
-                loginName: "",
-                expire   : 0,
-            };
-        this.token = params && params.token ? params.token : this.userInfo.token || "";
-        this.userId = this.userInfo.userId || "";
         this.maxQueryLimit = options && options.maxQueryLimit ? options.maxQueryLimit : 10000;
     }
 
-    async loadRecord(): Promise<ResponseMessage> {
+    async deleteRecord(): Promise<ResponseMessage<any>> {
+        // Check/validate the attributes / parameters
+        const dbCheck = checkDb(this.appDb);
+        if (dbCheck.code !== "success") {
+            return dbCheck;
+        }
+        try {
+            // use / activate database-collection
+            const appDbColl = this.appDb.collection(this.coll);
+            // clear the current collection documents/records, for refresh
+            const deleteRes = await appDbColl.deleteMany({});
+            if (deleteRes.acknowledged) {
+                return  getResMessage("success", {
+                    message: `${this.coll} collection - ${deleteRes.deletedCount} documents deleted successfully. Ready for data/documents refresh.`
+                })
+            }
+            return  getResMessage("deleteError", {
+                message: `Deletion task not acknowledged for ${this.coll}. Review system-error-log and retry.`
+            })
+        } catch (e) {
+            return getResMessage('insertError', {
+                message: `Error-inserting/creating new record(s). Please retry. ${e.message}`,
+                value  : {
+                    error: e,
+                },
+            });
+        }
+    }
+    async loadRecord(): Promise<ResponseMessage<any>> {
         // Check/validate the attributes / parameters
         const dbCheck = checkDb(this.appDb);
         if (dbCheck.code !== "success") {
@@ -60,7 +74,7 @@ class LoadRecord<T extends BaseModelType> {
         Please do not send more than ${this.maxQueryLimit} records to load at a time`;
         }
         if (!isEmptyObject(errors)) {
-            return getParamsMessage(errors, "paramsError");
+            return getParamsMessage(errors, MessageCodes.paramsError);
         }
 
         // create/load multiple records
@@ -69,8 +83,6 @@ class LoadRecord<T extends BaseModelType> {
             try {
                 // use / activate database-collection
                 const appDbColl = this.appDb.collection(this.coll);
-                // clear the current collection documents/records, for refresh
-                await appDbColl.deleteMany({});
                 // refresh (insert/create) new multiple records
                 const records = await appDbColl.insertMany(this.actionParams);
                 if (records.insertedCount > 0) {
@@ -106,7 +118,7 @@ class LoadRecord<T extends BaseModelType> {
 }
 
 // factory function
-function newLoadRecord<T extends BaseModelType>(params: CrudParamsType<T>, options: CrudOptionsType = {}) {
+function newLoadRecord(params: CrudParamsType, options: CrudOptionsType = {}) {
     return new LoadRecord(params, options);
 }
 

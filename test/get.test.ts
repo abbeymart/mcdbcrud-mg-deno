@@ -125,7 +125,7 @@ import {
     });
 
     postTestResult();
-    await appDbInstance.closeDb();
-    await auditDbInstance.closeDb();
+    appDbInstance.closeDb();
+    auditDbInstance.closeDb();
 
 })();
